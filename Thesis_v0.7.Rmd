@@ -1,0 +1,1132 @@
+---
+title: "Thesis_v0.5"
+author: "Oliver Tausendschön"
+date: "2023-11-06"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+# Dataset Overweight and Obesity:
+
+```{r}
+data_oao<-read.csv("NCD_RisC_Lancet_2017_BMI_age_standardised_country_adapted.csv")
+```
+
+In order to work with the data, we make some adjustments to the dataset:
+obesity: bmi >=30
+severe obesity bmi >= 35
+underweight: bmi <18.5
+under-normal weight: 18.5<bmi<20
+normal weight: 20<bmi<25
+overweight: 25<bmi<30
+moderate obesity 30<bmi35
+```{r}
+#data_oao<-data_oao[, -c(6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,30,31, 33,34)]
+colnames(data_oao)[8]<-"obesity"
+colnames(data_oao)[11]<-"severe_obesity"
+colnames(data_oao)[14]<-"underweight"
+colnames(data_oao)[17] <-"under-normal_weight"
+colnames(data_oao)[20] <-"normal_weight"
+colnames(data_oao)[23]<-"overweight"
+colnames(data_oao)[26]<-"moderate_obesity"
+data_oao<-data_oao[, -c(6,7,9,10,12,13,15,16,18,19,21,21,22,24,25,27,28,29,30,31,32,33,34)]
+#create healthy weight
+data_oao["healthy_weight"]<-data_oao$underweight + data_oao$`under-normal_weight` + data_oao$normal_weight
+#create oao
+data_oao["oao"]<-data_oao["obesity"]+ data_oao["overweight"]
+data_oao_men<-data_oao[data_oao$Sex == "Men",]
+data_oao_women<-data_oao[data_oao$Sex == "Women",]
+
+```
+
+```{r}
+countries<-c("EST", "FRA", "PER", "IND", "LVA", "COL", "IDN", "JPN", "LTU", "HUN", "SVN", "POL", "HRV", "RUS", "SVK", "CRI", "ROU", "CZE", "ZAF", "KOR", "CHE", "CHN", "NZL", "ISR", "AUT", "GBR", "LUX", "BGR", "ISL", "AUS", "CHL", "BRA", "MEX", "ITA", "IRL", "SWE", "GRC", "DNK", "FIN", "BEL", "ESP", "NOR", "ARG", "PRT", "CYP", "MLT", "CAN", "DEU", "NLD", "TUR", "SAU", "USA")
+oafs<-sort(c(5.5834, 6.1217, 7.5428, 7.7690, 6.0866, 4.6819, 9.1332, 9.0287, 5.5180, 6.4475, 8.2022, 9.090, 6.906, 6.676, 7.669, 4.878, 9.393, 10.065, 6.008, 8.536, 10.733, 6.449, 6.960, 6.022, 8.376, 8.691, 9.354, 9.743, 10.124, 9.714, 6.648, 7.063, 8.470, 6.246, 9.140, 6.195, 8.072, 9.033, 6.956, 7.534, 10.345, 8.613, 8.356, 9.910, 8.586, 8.934, 10.628, 7.920, 11.337, 11.576, 12.652, 13.531)/100)
+
+Country <- c("Estonia","France","Peru","India","Latvia","Colombia","Indonesia","Japan","Lithuania", "Hungary", "Slovenia", "Poland", "Croatia", "Russian Federation", "Slovakia","Costa Rica","Romania","Czech Republic","South Africa","South Korea", "Switzerland","China","New Zealand","Israel","Austria","United Kingdom","Luxembourg","Bulgaria","Iceland","Australia","Chile","Brazil","Mexico","Italy","Ireland","Sweden","Greece","Denmark","Finland","Belgium","Spain","Norway","Argentina","Portugal","Cyprus","Malta","Canada","Germany","Netherlands","Turkey","Saudi Arabia","United States of America")
+
+#Filter for only relevant countries:
+#countries_8<-c("Australia", "Brazil", "India", "Mexico", "Saudi Arabia", "South Africa", "Spain", "Thailand")
+#data_oao_filtered<-subset(data_oao, ISO %in% countries)
+#data_oao_filtered_8<-subset(data_oao, Country.Region.World %in% countries_8)
+```
+
+oao for boys and girls:
+
+```{r}
+
+data_oao_child<-read.csv("NCD_RisC_Lancet_2020_BMI_child_adolescent_country.csv")
+colnames(data_oao_child)[12]<-"oao"
+data_oao_child<-data_oao_child[, c(1,2,3,4,5,12)]
+data_oao_child <- aggregate(oao ~ Country + Sex + Year, data = data_oao_child, FUN = mean) #we take the mean because we suppose that there are equally many indiviudals in each age-group
+data_oao_child_girls<-data_oao_child[data_oao_child$Sex == "Girls", ]
+data_oao_child_boys<-data_oao_child[data_oao_child$Sex == "Boys", ]
+```
+
+# oao prevelance projection: autoregression
+
+## exogenous variables
+
+```{r}
+
+#add external proxies to develop ARIMAX (population change):
+population_per<-read.csv("WPP2022_PopulationByAge5GroupSex_Percentage_Medium.csv")
+colnames(population_per)[13]<-"Year"
+colnames(population_per)[4] <- "ISO"
+colnames(population_per)[8] <- "Country"
+
+population_per<-population_per[population_per$Year >= "1975" & population_per$Year<="2060", ]
+population_per<-subset(population_per, ISO %in% unique(data_oao$ISO))
+ag_population_all<-aggregate(cbind(PopTotal, PopFemale, PopMale) ~ ISO + Year + Country + Location, data = population_per, sum)
+
+ag_population_child<-population_per[population_per$AgeGrp %in% c("0-4", "5-9", "10-14", "15-19"), ]
+ag_population_child <- aggregate(cbind(PopTotal, PopFemale, PopMale) ~ ISO + Year + Country + Location, data = ag_population_child, sum)
+ag_population_adult <- population_per[!(population_per$AgeGrp %in% c("0-4", "5-9", "10-14", "15-19")), ]
+ag_population_adult <- aggregate(cbind(PopTotal, PopFemale, PopMale) ~ ISO + Year + Country + Location, data = ag_population_adult, sum)
+# Use aggregate to sum up the values based on ISO, Year, Country, and Location
+
+
+
+
+#add external proxies to develop ARIMAX (urbanization):
+
+urban_per<-read.csv("AnnualUrbanPopMidYear-2050.csv",skip = 1, header = T) #only until 2050? We decided to predict oao prevelance without this factor as it only ranges to 2050 and not 2060.
+urban_per$Location<-trimws(urban_per$Location)
+urban_per<-subset(urban_per, Location %in% unique(data_oao$Country.Region.World))#no ISO --> A FEW COUNTRIES MISSING
+urban_per<-urban_per[, -c(1,3)]
+
+library(tidyr)
+# Reshape the dataframe
+urban_per <- pivot_longer(urban_per, cols = -Location, names_to = "Year", values_to = "UrbanPopulationPercentage")
+urban_per$Year <- gsub("X", "", urban_per$Year)
+urban_per <- urban_per[urban_per$Location != "Tokelau", ]
+urban_per <- urban_per[urban_per$Location != "Nauru", ]
+urban_per <- urban_per[urban_per$Location != "Singapore", ]
+urban_per <- urban_per[urban_per$Location != "Bermuda", ]
+urban_per <-urban_per[urban_per$Year!="2017",] #remove 2017 and 2018 to start with 2019
+urban_per <-urban_per[urban_per$Year!="2018",]
+library(dplyr)
+urban_per$Year<-as.integer(urban_per$Year)
+
+```
+
+
+
+
+## autoregression of 161 countries using c(2,1,0) and using exception .notnull with  c(2,2,0) and c(2,3,0)
+
+This is the model used to predict prevalence. I still have to experiment with the model parameters to find out the optimal combination. But for now I decided with to stick with these as the others did not work...
+So we fit an arimax(2,1,0) model and do this for men, women, girls and boys. We decided to leave out urbanization as a factor to enable us predicting until 2060. (data on urbanization only goes up to 2050)
+
+### Loop for men:
+```{r}
+library(forecast)
+
+forecast_df_men <- data.frame()
+m_2020_2060_men <- data.frame()
+for (country in unique(urban_per$Location)) {
+  country_df <- data_oao_men[data_oao_men$Country.Region.World == country, ]
+  ag_popu_df <- ag_population_adult[ag_population_adult$Location == country, ]
+  ag_popu_df2<-ag_popu_df[ag_popu_df$Year>=2019, ]
+  ag_popu_df<-ag_popu_df[ag_popu_df$Year<=2016, ]
+  print(country)
+
+  # Extract the time series and exogenous variables
+  country_df$oao_logit <- log(country_df$oao / (1-country_df$oao))
+  country_df$oao_log <- log(country_df$oao)
+
+  ts_data <- ts(country_df$oao_logit, start = min(country_df$Year), frequency = 1)
+  xreg_data <-ag_popu_df$PopMale
+  xreg_data2<-ag_popu_df2$PopMale
+
+
+  # Initialize arimax_model outside the tryCatch block
+  arimax_model <- NULL
+
+  tryCatch({
+    # Try fitting ARIMAX model
+    arimax_model <- Arima(ts_data, order = c(2, 1, 0), xreg = xreg_data)
+  }, error = function(e) {
+    # If an error occurs, print the error message
+    print(paste("Error:", e))
+  })
+
+  if (!is.null(arimax_model)) {
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast = as.numeric(forecasts_original_scale))
+    forecast_df_men <- rbind(forecast_df_men, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale)
+    m_2020_2060_men <- rbind(m_2020_2060_men, data.frame(Country = country, MeanProjection = country_mean))
+  }
+#add if is.null for error cases:
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast = as.numeric(forecasts_original_scale))
+    forecast_df_men <- rbind(forecast_df_men, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale)
+    m_2020_2060_men <- rbind(m_2020_2060_men, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error in block:", e))
+  })
+  }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 3, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 32), Year = seq(2019, 2060), Forecast = as.numeric(forecasts_original_scale))
+    forecast_df_men <- rbind(forecast_df_men, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale)
+    m_2020_2060_men <- rbind(m_2020_2060_men, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error in block:", e))
+  })
+}
+}
+
+# Print the results
+head(forecast_df_men)
+print(m_2020_2060_men)
+```
+
+
+
+### Loop for Women:
+```{r}
+library(forecast)
+
+forecast_df_women <- data.frame()
+m_2020_2060_women <- data.frame()
+for (country in unique(urban_per$Location)) {
+  country_df <- data_oao_women[data_oao_women$Country.Region.World == country, ]
+  urban_df <- urban_per[urban_per$Location == country, ]
+  ag_popu_df <- ag_population_adult[ag_population_adult$Location == country, ]
+  ag_popu_df2<-ag_popu_df[ag_popu_df$Year>=2019, ]
+  ag_popu_df<-ag_popu_df[ag_popu_df$Year<=2016, ]
+
+  
+  print(country)
+
+  # Extract the time series and exogenous variables
+  country_df$oao_logit <- log(country_df$oao / (1-country_df$oao))
+  country_df$oao_log <- log(country_df$oao)
+
+  ts_data <- ts(country_df$oao_logit, start = min(country_df$Year), frequency = 1)
+  
+
+  xreg_data <- ag_popu_df$PopFemale
+  xreg_data2 <- ag_popu_df2$PopFemale
+
+
+  # Initialize arimax_model outside the tryCatch block
+  arimax_model <- NULL
+
+  tryCatch({
+    # Try fitting ARIMAX model
+    arimax_model <- Arima(ts_data, order = c(2, 1, 0), xreg = xreg_data)
+  }, error = function(e) {
+    # If an error occurs, print the error message
+    print(paste("Error:", e))
+  })
+
+  if (!is.null(arimax_model)) {
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast = as.numeric(forecasts_original_scale))
+    forecast_df_women <- rbind(forecast_df_women, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale)
+    m_2020_2060_women <- rbind(m_2020_2060_women, data.frame(Country = country, MeanProjection = country_mean))
+  }
+  
+#add if is.null for error cases:
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast = as.numeric(forecasts_original_scale))
+    forecast_df_women <- rbind(forecast_df_women, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale)
+    m_2020_2060_women <- rbind(m_2020_2060_women, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error in block:", e))
+  })
+  }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 3, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast = as.numeric(forecasts_original_scale))
+    forecast_df_women <- rbind(forecast_df_women, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale)
+    m_2020_2060_women <- rbind(m_2020_2060_women, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error in block:", e))
+  })
+}
+}
+
+# Print the results
+head(forecast_df_women)
+print(m_2020_2060_women)
+```
+
+### Loop for boys:
+
+```{r}
+library(forecast)
+
+forecast_df_boys <- data.frame()
+m_2020_2060_boys <- data.frame()
+for (country in unique(urban_per$Location)) {
+  country_df <- data_oao_child_boys[data_oao_child_boys$Country == country, ]
+  #urban_df <- urban_per[urban_per$Location == country, ]
+  ag_popu_df <- ag_population_child[ag_population_child$Location == country, ]
+  ag_popu_df2<-ag_popu_df[ag_popu_df$Year>=2019, ]
+  ag_popu_df<-ag_popu_df[ag_popu_df$Year<=2016, ]
+
+  print(country)
+
+  # Extract the time series and exogenous variables
+  country_df$oao_logit <- log(country_df$oao / (1-country_df$oao))
+  country_df$oao_log <- log(country_df$oao)
+
+  ts_data <- ts(country_df$oao_logit, start = min(country_df$Year), frequency = 1)
+  #xreg_data <- cbind(urban_df$UrbanPopulationPercentage, ag_popu_df$PopMale)
+  xreg_data<-ag_popu_df$PopMale
+  xreg_data2<-ag_popu_df2$PopMale
+
+  # Initialize arimax_model outside the tryCatch block
+  arimax_model <- NULL
+
+  tryCatch({
+    # Try fitting ARIMAX model
+    arimax_model <- Arima(ts_data,order = c(2, 1, 0), xreg = xreg_data)
+  }, error = function(e) {
+    # If an error occurs, print the error message
+    print(paste("Error:", e))
+  })
+
+  if (!is.null(arimax_model)) {
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast = as.numeric(forecasts_original_scale))
+    forecast_df_boys <- rbind(forecast_df_boys, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale)
+    m_2020_2060_boys <- rbind(m_2020_2060_boys, data.frame(Country = country, MeanProjection = country_mean))
+  }
+#add if is.null for error cases:
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast = as.numeric(forecasts_original_scale))
+    forecast_df_boys <- rbind(forecast_df_boys, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale)
+    m_2020_2060_boys <- rbind(m_2020_2060_boys, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error in block:", e))
+  })
+  }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 3, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast = as.numeric(forecasts_original_scale))
+    forecast_df_boys <- rbind(forecast_df_boys, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale)
+    m_2020_2060_boys <- rbind(m_2020_2060_boys, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error in block:", e))
+  })
+}
+}
+
+# Print the results
+head(forecast_df_boys)
+print(m_2020_2060_boys)
+```
+
+### Loop for girls:
+```{r}
+library(forecast)
+
+forecast_df_girls <- data.frame()
+m_2020_2060_girls <- data.frame()
+for (country in unique(urban_per$Location)) {
+  country_df <- data_oao_child_girls[data_oao_child_girls$Country == country, ]
+  urban_df <- urban_per[urban_per$Location == country, ]
+  ag_popu_df <- ag_population_child[ag_population_child$Location == country, ]
+  ag_popu_df2<-ag_popu_df[ag_popu_df$Year>=2019, ]
+  ag_popu_df<-ag_popu_df[ag_popu_df$Year<=2016, ]
+
+  print(country)
+
+  # Extract the time series and exogenous variables
+  country_df$oao_logit <- log(country_df$oao / (1-country_df$oao))
+  country_df$oao_log <- log(country_df$oao)
+
+
+  ts_data <- ts(country_df$oao_logit, start = min(country_df$Year), frequency = 1)
+  xreg_data <- ag_popu_df$PopFemale
+  xreg_data2<-ag_popu_df$PopFemale
+  # Initialize arimax_model outside the tryCatch block
+  arimax_model <- NULL
+
+  tryCatch({
+    # Try fitting ARIMAX model
+    arimax_model <- Arima(ts_data, order = c(2, 1, 0), xreg = xreg_data)
+  }, error = function(e) {
+    # If an error occurs, print the error message
+    print(paste("Error:", e))
+  })
+
+  if (!is.null(arimax_model)) {
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast = as.numeric(forecasts_original_scale))
+    forecast_df_girls <- rbind(forecast_df_girls, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale)
+    m_2020_2060_girls <- rbind(m_2020_2060_girls, data.frame(Country = country, MeanProjection = country_mean))
+  }
+
+#add if is.null for error cases:
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean)) 
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast = as.numeric(forecasts_original_scale))
+    forecast_df_girls <- rbind(forecast_df_girls, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale)
+    m_2020_2060_girls <- rbind(m_2020_2060_girls, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error in block:", e))
+  })
+  }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 3, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast = as.numeric(forecasts_original_scale))
+    forecast_df_girls <- rbind(forecast_df_girls, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale)
+    m_2020_2060_girls <- rbind(m_2020_2060_girls, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error in block:", e))
+  })
+}
+}
+
+# Print the results
+head(forecast_df_girls)
+print(forecast_df_girls)
+```
+
+
+# Regression of oafs
+
+We now compute the average oao for 2020-2060 for each group. We can then use this to regress this average on the available average oaf of 2020-2050. This way, we can always plug in a number for obesity prevalence and  predict OAFs from that:
+
+## requirements to fit oaf into projection dataframe:
+```{r}
+#country/countries defined above!
+oaf_df_men<-data.frame(countries, Country, oafs)
+oaf_df_men<-merge(oaf_df_men, m_2020_2060_men, by = "Country")
+
+oaf_df_women<-data.frame(countries, Country, oafs)
+oaf_df_women<-merge(oaf_df_women, m_2020_2060_women, by = "Country")
+
+oaf_df_girls<-data.frame(countries, Country, oafs)
+oaf_df_girls<-merge(oaf_df_girls, m_2020_2060_girls, by = "Country")
+
+oaf_df_boys<-data.frame(countries, Country, oafs)
+oaf_df_boys<-merge(oaf_df_boys, m_2020_2060_boys, by = "Country")
+
+```
+## regression for different groups:
+Men:
+```{r}
+final<-lm(oaf_df_men$oafs~oaf_df_men$MeanProjection)
+summary(final)
+plot(oaf_df_men$oafs~oaf_df_men$MeanProjection)
+abline(final$coefficients)
+```
+
+Women:
+```{r}
+final<-lm(oaf_df_women$oafs~oaf_df_women$MeanProjection)
+summary(final)
+plot(oaf_df_women$oafs~oaf_df_women$MeanProjection)
+abline(final$coefficients)
+```
+
+Girls:
+```{r}
+final<-lm(oaf_df_girls$oafs~oaf_df_girls$MeanProjection)
+summary(final)
+plot(oaf_df_girls$oafs~oaf_df_girls$MeanProjection)
+abline(final$coefficients)
+```
+
+Boys:
+```{r}
+final<-lm(oaf_df_boys$oafs~oaf_df_boys$MeanProjection)
+summary(final)
+plot(oaf_df_boys$oafs~oaf_df_boys$MeanProjection)
+abline(final$coefficients)
+```
+## weighted lm to predict oafs:
+
+We now compute the weighted average prevalence of every year and country. This way, we can fit one general model and not one specific one for each group. We use this final model to predict oafs.
+
+##creating a dataframe for all groups:
+```{r}
+merged_df_adult <- merge(ag_population_adult, forecast_df_men, by.x=c("Location","Year"),by.y = c("Country", "Year"))
+merged_df_adult <- merge(merged_df_adult, forecast_df_women, by.x=c("Location","Year"),by.y = c("Country", "Year"))
+
+merged_df_child <- merge(ag_population_child, forecast_df_boys, by.x=c("Location","Year"),by.y = c("Country", "Year"))
+
+merged_df_child <- merge(merged_df_child, forecast_df_girls, by.x=c("Location","Year"),by.y = c("Country", "Year"))
+
+predictions_oao<-merge(merged_df_adult,merged_df_child, by=c("Location", "Year"))
+predictions_oao$Population_girls <- predictions_oao$PopFemale.y
+predictions_oao$Population_boys <- predictions_oao$PopMale.y
+predictions_oao$PopMale.y <- NULL; predictions_oao$PopFemale.y<-NULL
+predictions_oao$Forecast_girls <- predictions_oao$Forecast.y.y
+predictions_oao$Forecast_boys <- predictions_oao$Forecast.x.y
+predictions_oao$Forecast_men <- predictions_oao$Forecast.x.x
+predictions_oao$Forecast_women <- predictions_oao$Forecast.y.x
+predictions_oao$Population_men <- predictions_oao$PopMale.x
+predictions_oao$Population_women <- predictions_oao$PopFemale.x
+predictions_oao$Forecast.x.x<-NULL;predictions_oao$Forecast.x.y<-NULL;predictions_oao$Forecast.y.x<-NULL;predictions_oao$Forecast.y.y<-NULL;predictions_oao$PopMale.x<-NULL;predictions_oao$PopFemale.x<-NULL
+```
+
+
+Computing the weighted oao:
+```{r}
+predictions_oao$Forecast_weighted<-predictions_oao$Forecast_men*predictions_oao$Population_men/100+predictions_oao$Forecast_women*predictions_oao$Population_women/100+predictions_oao$Forecast_boys*predictions_oao$Population_boys/100+predictions_oao$Forecast_girls*predictions_oao$Population_girls/100
+```
+
+Dataframe for average oao and average oao to use for regression
+```{r}
+predictions_average_oaf_oao <- aggregate(Forecast_weighted ~ Location, data = predictions_oao, FUN = mean)
+oaf_df_2060<-data.frame(countries, Country, oafs)
+predictions_average_oaf_oao<-merge(oaf_df_2060, predictions_average_oaf_oao, by.x = "Country", by.y ="Location")
+```
+
+```{r}
+final<-lm(predictions_average_oaf_oao$oafs~predictions_average_oaf_oao$Forecast_weighted)
+summary(final)
+plot(predictions_average_oaf_oao$oafs~predictions_average_oaf_oao$Forecast_weighted)
+abline(final$coefficients)
+```
+
+# Direct medical costs
+
+## Costs of 2016:
+```{r}
+#direct_medical_costs_2019<-read.csv("GHE_2019.csv")
+#direct_medical_costs_2019<-direct_medical_costs_2019[-1,]
+#colnames(direct_medical_costs_2019)[4] <- "GHE_2019"
+
+#matrix<-cbind(1,predictions_oao$Forecast_weighted)
+#predictions_average_oaf_oao<-matrix%*%final$coefficients
+#average_weighted_oao_2060<-cbind(predictions_average_oaf_oao, average_weighted_oao_2060) #average_weighted_oao_2060 now includes the predicted oafs!
+#direct_medical_costs_2019<-merge(direct_medical_costs_2019,average_weighted_oao_2060, by.x="Countries", by.y = "Location")
+#direct_medical_costs_2019$GHE_2019 <- as.numeric(gsub(",", "", direct_medical_costs_2019$GHE_2019))
+#direct_medical_costs_2019$DMC<-direct_medical_costs_2019$predictions_average_oaf_oao*direct_medical_costs_2019$GHE_2019
+```
+## costs till 2050/2060:
+ 
+```{r}
+direct_medical_costs_2050<-read.csv("IHME_EXPECTED_HEALTH_SPENDING_2019_2050_Y2021M09D22.csv")
+direct_medical_costs_2050<-direct_medical_costs_2050[, c(1,2,3,5,6)]
+matrix<-cbind(1,predictions_oao$Forecast_weighted)
+predictions_matrix_allyears_oaf<-matrix%*%final$coefficients
+predictions_oao<-cbind(predictions_matrix_allyears_oaf, predictions_oao)
+
+predictions_oao<-merge(direct_medical_costs_2050,predictions_oao, by.x=c("location_name", "year"), by.y = c("Location", "Year"))
+predictions_oao$direct_costs_1000<-predictions_oao$predictions_matrix_allyears_oaf*predictions_oao$the_total_mean
+```
+
+#direct non-medical costs:
+
+##travel cost:
+We calculated this by multiplying the
+average transport cost per trip by the population with overweight and obesity
+```{r}
+gas<-read.csv("e2373858-926a-4755-8350-78bb920f6ee9_Data.csv")
+gas <- gas[, c(1,2,3,4,50,51,52,53,54,55,56,57,58, 59, 60, 61)]
+gas$gas2016<-gas$X2016..YR2016.
+#replace missing values by mean:
+gas$gas2016[gas$gas2016 == ".."] <- NA
+m <- mean(as.numeric(gas$gas2016), na.rm = TRUE)
+gas$gas2016[is.na(gas$gas2016)] <- m
+#reduce it to 52 countries used above:
+#gas<-subset(gas, Country.Code %in% countries)
+#reduce it to all countries
+gas<-subset(gas, Country.Code %in% unique(data_oao$ISO))
+```
+
+```{r}
+population<-read.csv("WPP2022_Demographic_Indicators_Medium.csv")
+population<-population[, c(4,10,13,14,15,16,17)]
+population<-population[population$Time>=2019, ]
+#reduce it to 52 countries used above:
+#population<-subset(population, Country.Code %in% countries)
+#population<-subset(population, ISO3_code %in% countries)
+#reduce it to all countries
+population<-subset(population, ISO3_code %in% unique(data_oao$ISO))
+#rename columns
+colnames(population)[colnames(population) == "Time"] <- "Year"
+colnames(population)[colnames(population) == "ISO3_code"] <- "ISO"
+colnames(population)[colnames(population) == "TPopulation1Jan"] <- "Population_1000"
+
+#reducing to 1975-2016:
+#population<-population[population$Year >= "1975" & population$Year <="2016" ,]
+#merge with data_oao
+#merge_oao_population<-merge(data_oao, population, by = c("Year", "ISO"), all.x = TRUE)
+
+```
+
+
+We now add parameters for the number of outpatient and inpatient visits.
+"parameter sourced from a scoping review of peer-reviewed studies!" Which peer-reviewed studies? "
+"For outpatient visits and hospitalizations (number and length), we use a global estimate due
+to the paucity of country-specific data" Which global estimate?
+
+average inpatient/outpatient visits: (outpatient<-5.42, inpatient<-0.10)
+)
+https://www.researchgate.net/publication/329597721_Funding_and_services_needed_to_achieve_universal_health_coverage_applications_of_global_regional_and_national_estimates_of_utilisation_of_outpatient_visits_and_inpatient_admissions_from_1990_to_2016_a
+
+HIC(spain):https://pubmed.ncbi.nlm.nih.gov/28261758/
+HIC(UK): https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6180713/
+HIC(US):https://journals.lww.com/md-journal/fulltext/2016/01120/body_mass_index_trajectories_and_healthcare.54.aspx
+HIC(EU):https://www.dovepress.com/the-humanistic-and-economic-burden-associated-with-increasing-body-mas-peer-reviewed-fulltext-article-DMSO
+HIC(Germany/italy):https://www.dovepress.com/obesity-in-germany-and-italy-prevalence-comorbidities-and-associations-peer-reviewed-fulltext-article-CEOR
+LMIC(Brazil): https://dmsjournal.biomedcentral.com/articles/10.1186/s13098-018-0322-9
+
+
+```{r}
+##HIC:
+#average outpatient visits per capita
+#1.32=Frequency of GP visit per month, 1.30 = normal weight
+GP<-1.32*12-1.30*12
+Specialist<-1.38*12-1.3*12
+hic_outpatient<-GP+Specialist
+#average inpatient(hospitalisations) visits per capita
+hospitalizations<-0.01
+hic_inpatient<-hospitalizations
+##LMIC:
+#4.36=Frequency of GP visit per 6 months, 4.35 = normal weight
+GP<-4.35*2-4.35*2
+ER<-0.52*2-0.44*2
+lmic_outpatient<-GP+ER
+#average inpatient(hospitalisations) visits per capita
+hospitalizations<-0.21*2-0.18*2
+lmic_inpatient<-hospitalizations
+#average outpatient visits per capita
+
+```
+We need the income groups if we want to use this data on inpatient/outpatient visits:
+```{r}
+income_groups<-read.csv("CLASS.csv")
+predictions_oao<-merge(predictions_oao, income_groups[, c(2,4)], by.x="iso3", by.y="Code")
+```
+addinpatient/outpatient:
+```{r}
+predictions_oao$inpatient <- ifelse(predictions_oao$Income.group == "High income", hic_inpatient, lmic_inpatient)
+predictions_oao$outpatient<- ifelse(predictions_oao$Income.group == "High income", hic_outpatient, lmic_outpatient)
+```
+
+
+
+### calculate for 2019-2060:
+Before we do that We include it into our predictions_oao dataframe. We can then calculate gasprice * 5km(average distance to facility)*0.06(l/km). We can then calculate inpatien and outpatient costs.
+```{r}
+predictions_oao<-merge(predictions_oao, population[, c(2,3,4)], by.x=c("location_name", "year"), by.y=c("Location", "Year"))
+predictions_oao$oaoPopulation_1000<-predictions_oao$Population_1000*predictions_oao$Forecast_weighted
+
+predictions_oao<-merge(gas[, c(1,17)], predictions_oao, by.x="Country.Name", by.y="location_name", all.x=TRUE)
+
+#gas price per l * km * l/km:
+predictions_oao$atc<-as.numeric(predictions_oao$gas2016)*5*0.06
+#inpatient/outpatient
+outpatient_travel_cost<-predictions_oao$atc*predictions_oao$outpatient*predictions_oao$oaoPopulation
+inpatient_travel_cost<-predictions_oao$atc*predictions_oao$inpatient*predictions_oao$oaoPopulation*2 #we multiply with two to also include informal caregiver travel costs!
+predictions_oao$travel_cost_1000<-outpatient_travel_cost+inpatient_travel_cost
+```
+data clean up:
+Our dataframe is getting messy so lets do a clean up:
+```{r}
+predictions_oao<-predictions_oao[, -c(4,8,9,11,12)]
+```
+
+#indirect costs:
+
+##premature mortality like described:
+
+
+This is calculated as the number
+of years of potential life lost by individuals (by age group and sex) who died from OAO multiplied by the economic
+value of a life year.
+
+life expectancy/mortality rate:
+##abriged version:
+```{r}
+#life expectancy:
+life_expectancy_2100<-read.csv("WPP2022_Life_Table_Abridged_Medium_2022-2100.csv")
+
+life_expectancy_2100<-life_expectancy_2100[, c(4, 13,16,17,19,20,10,28)]
+life_expectancy_2022<-read.csv("WPP2022_Life_Table_Abridged_Medium_1950-2021.csv")
+life_expectancy_2022<-life_expectancy_2022[life_expectancy_2022$Time >=2016, c(4,13,16,17,19,20,10,28)]
+life_expectancy<-rbind(life_expectancy_2100, life_expectancy_2022)
+life_expectancy$AgeGrp <- ifelse(life_expectancy$AgeGrp %in% c("95-99", "100+"), "95+", life_expectancy$AgeGrp)
+```
+oao related deaths (ord):
+```{r}
+#premature_mortality<-read.csv("ord_deaths_both.csv")
+premature_mortality_male<-read.csv("ord_deaths_male.csv") #read in first half of csv file
+premature_mortality_female<-read.csv("ord_deaths_female.csv") #second half
+premature_mortality<-rbind(premature_mortality_female, premature_mortality_male) #combine it
+ord_deaths<-premature_mortality[premature_mortality$measure_id==1, ]
+ord_deaths<-premature_mortality[premature_mortality$metric_id==1, ]
+ord_deaths<-premature_mortality[premature_mortality$sex_name!="Both", ]
+ord_deaths$age_name <- gsub(" years", "", ord_deaths$age_name)
+ord_deaths$age_name <- gsub(" year", "", ord_deaths$age_name)
+
+ord_deaths$age_name[ord_deaths$age_name == "<1"] <- "0"
+#ord_deaths$age_name[ord_deaths$age_name == "95+"] <- "95-99"
+
+#sum up ords:
+ord_deaths <- aggregate(val ~ sex_name + age_name + location_name + year, data = ord_deaths, FUN = sum)
+ord_deaths$sex_name <- ifelse(ord_deaths$sex_name=="Male", "Men", "Women")
+
+#filter data on relevant countries/years:
+
+#ord_oao<-merge(ord_deaths, data_oao, by.x=c("year", "location_name", "sex_name"), by.y=c("Year", "Country.Region.World","Sex"))
+ord_deaths <- ord_deaths[ord_deaths$location_name %in% unique(data_oao$Country.Region.World) & ord_deaths$year %in% 2016, ]
+life_expectancy <- life_expectancy[life_expectancy$Location %in% unique(data_oao$Country.Region.World), ]
+country_iso<-unique(life_expectancy[, c(1,7)])
+ord_deaths<-merge(ord_deaths, country_iso, by.x="location_name", by.y="Location")
+```
+
+test it with australia male:
+
+```{r}
+#ord_deaths_australia:
+ord_deaths_australia_male<-ord_deaths[ord_deaths$location_name=="Australia"&ord_deaths$sex_name=="Men", ]
+life_expectancy_australia_male <- life_expectancy[life_expectancy$Location %in% "Australia" & life_expectancy$Sex %in% "Male" & life_expectancy$Time %in% 2016, ]
+life_expectancy_australia_male<-life_expectancy_australia_male[-22, ] #remove last interval becaue we have 95+ twice
+ord_deaths_australia_male$ylls<-life_expectancy_australia_male$ex*ord_deaths_australia_male$val
+ylls<-rep(life_expectancy_australia_male$ex, each = 4)*ord_deaths_australia_male$val
+
+#try it:
+sum_yl<-sum(ord_deaths_australia_male$ylls)
+premature_cost_australia<-sum_yl*49876.7123761245*4
+#try it with the formula used in pdf:
+3.09*cumprod(1-life_expectancy_australia_male$mx)
+sum(3.09*cumprod(1-life_expectancy_australia_male$mx))*8
+premature_cost_australia
+```
+test it with australia
+
+```{r}
+#ord_deaths_australia:
+ord_deaths_australia<-ord_deaths[ord_deaths$location_name=="Australia", ]
+ord_deaths_australia <- aggregate(val ~ age_name + location_name + year, data = ord_deaths_australia, FUN = sum)
+
+life_expectancy_australia <- life_expectancy[life_expectancy$Location %in% "Australia" & life_expectancy$Sex %in% "Total" & life_expectancy$Time %in% 2016, ]
+life_expectancy_australia<-life_expectancy_australia[-22, ] #remove last interval becaue we have 95+ twice
+ord_deaths_australia$ylls<-life_expectancy_australia$ex*ord_deaths_australia$val
+ylls<-ord_deaths_australia$val*life_expectancy_australia$ex
+
+#try it:
+sum_yl<-sum(ord_deaths_australia$ylls)
+premature_cost_australia<-sum_yl*49876.7123761245#mulitply ylls with value of life year
+#try it with the formula used in pdf:
+a<-5.628421*cumprod(1-life_expectancy_australia$mx)
+b<-sum(a)+sum(a[21]*1-life_expectancy_australia$mx[21]^1000)
+
+a<-sum(5.628421*cumprod(1-life_expectancy_australia$mx))
+premature_cost_test<-a*49876.7123761245
+
+sum_yl
+premature_cost_australia
+```
+Let´s try it with the formula in like described (for australia:)
+The results are a bit better but still much more...
+```{r}
+# Given data
+total_yll <- 0
+
+# Loop through each age group
+h<-0
+for (i in ord_deaths_australia$age_name) {
+  ord_deaths_group <- ord_deaths_australia[ord_deaths_australia$age_name == i, ]
+  c<-life_expectancy_australia$mx[h:length(life_expectancy_australia$mx)]
+  
+  #this is basically the formula:
+  a <- ord_deaths_group$val[1] * cumprod(1- c)
+  b<-sum(a)+sum(a[length(a)]*(1-life_expectancy_australia$mx[21]^100))
+  # Add YPLL to the total
+  total_yll <- total_yll + b
+  
+  # Print results for each age group
+  cat("AgeGroup", i, "\n")
+  cat("cumprod", c, "\n")
+  cat("b", b, "\n")
+  h<-h+1
+}
+
+# Print total YPLL
+cat("Total YLL:", total_yll, "\n")
+cost<-total_yll*49876.7123761245
+cat("Total cost australia:", cost, "\n")
+
+```
+
+
+initial version of it:
+```{r}
+total_yll <- 0
+ 
+ # Loop through each age group
+for (i in ord_deaths_australia$age_name) {
+   h<-0
+   ord_deaths_group <- ord_deaths_australia[ord_deaths_australia$age_name == i, ]
+   start_index <- h
+   a <- ord_deaths_group$val[1] * cumprod(1- life_expectancy_australia$mx[start_index:length(life_expectancy_australia$mx)])
+   #a<-ord_deaths_group$val[1] * cumprod(1-life_expectancy_australia$mx)
+   b<-sum(a)+sum(a[21]*1-life_expectancy_australia$mx[21]^100)
+ 
+   # Add YPLL to the total
+   total_yll <- total_yll + b
+   
+   # Print results for each age group
+   cat("AgeGroup", i, "\n")
+   cat("b", b, "\n")
+   h<-h+1
+   cat("Total YLL:", total_yll, "\n")
+}
+# Print total YPLL
+cat("Total YLL:", total_yll, "\n")
+cost<-total_yll*49876.7123761245
+cat("Total cost australia:", cost, "\n")
+
+```
+
+
+try it with all countries (loop through countries):
+
+```{r}
+ord_deaths <- aggregate(val ~ age_name + location_name + year + ISO3_code, data = ord_deaths, FUN = sum)
+life_expectancy <- life_expectancy[life_expectancy$Sex %in% "Total" & life_expectancy$Time %in% 2016, ]
+
+
+result_df <- data.frame()
+skip_countries <- c("TUR", "COK", "NIU", "TWN", "TKL")
+
+for (country in unique(data_oao$ISO)) {
+  if (country %in% skip_countries){
+    next
+  }
+  print(country)
+  ord_deaths_country <- ord_deaths[ord_deaths$ISO3_code == country, ]
+  life_expectancy_country <- life_expectancy[life_expectancy$ISO3_code %in% country, ]
+  life_expectancy_country <- life_expectancy_country[-22, ]  # remove last interval because we have 95+ twice
+
+  gdp_country<-as.numeric(gdp[gdp$Country.Code==country, 48])
+
+  # Calculate ylls for the country
+  ylls <- life_expectancy_country$ex * ord_deaths_country$val
+
+  # Add ylls to ord_deaths_country data frame
+  ord_deaths_country$ylls <- ylls
+
+  # Sum of ylls for the country
+  sum_ylls_country <- sum(ylls)
+
+  # Calculate premature cost for the country
+  premature_cost_country <- sum_ylls_country * gdp_country  # multiply ylls with the value of a life year
+
+  # Create a data frame with results for the country
+  result_country <- data.frame(
+    Location = country,
+    Sum_YLLs = sum_ylls_country,
+    Premature_Cost = premature_cost_country
+  )
+
+  # Append results to the main data frame
+  result_df <- rbind(result_df, result_country)
+}
+
+# Print or use the result_df data frame containing results for each country
+head(result_df)
+
+```
+
+
+
+##complete version:
+```{r}
+#life expectancy:
+life_expectancy_2100<-read.csv("WPP2022_Life_Table_Complete_Medium_Both_2022-2100.csv")
+
+life_expectancy_2100<-life_expectancy_2100[, c(13,16,17,19,20,10,28)]
+life_expectancy_2022<-read.csv("WPP2022_Life_Table_Complete_Medium_Both_1950-2021.csv")
+life_expectancy_2022<-life_expectancy_2022[life_expectancy_2022$Time >=2016, c(13,16,17,19,20,10,28)]
+life_expectancy<-rbind(life_expectancy_2100, life_expectancy_2022)
+```
+oao related deaths (ord):
+```{r}
+#premature_mortality<-read.csv("ord_deaths_both.csv")
+premature_mortality_male<-read.csv("ord_deaths_male.csv") #read in first half of csv file
+premature_mortality_female<-read.csv("ord_deaths_female.csv") #second half
+premature_mortality<-rbind(premature_mortality_female, premature_mortality_male) #combine it
+ord_deaths<-premature_mortality[premature_mortality$measure_id==1, ]
+ord_deaths<-premature_mortality[premature_mortality$metric_id==1, ]
+ord_deaths<-premature_mortality[premature_mortality$sex_name!="Both", ]
+ord_deaths$age_name <- gsub(" years", "", ord_deaths$age_name)
+ord_deaths$age_name[ord_deaths$age_name == "<1"] <- "0"
+
+#sum up ords:
+ord_deaths <- aggregate(val ~ sex_name + age_name + location_name + year, data = ord_deaths, FUN = sum)
+ord_deaths$sex_name <- ifelse(ord_deaths$sex_name=="Male", "Men", "Women")
+
+#filter data on relevant countries/years:
+
+#ord_oao<-merge(ord_deaths, data_oao, by.x=c("year", "location_name", "sex_name"), by.y=c("Year", "Country.Region.World","Sex"))
+ord_deaths <- ord_deaths[ord_deaths$location_name %in% unique(data_oao$Country.Region.World) & ord_deaths$year %in% 2016, ]
+life_expectancy <- life_expectancy[life_expectancy$Location %in% unique(data_oao$Country.Region.World), ]
+```
+test it with australia male:
+
+```{r}
+#ord_deaths_australia:
+ord_deaths_australia<-ord_deaths[ord_deaths$location_name=="Australia", ]
+ord_deaths_australia_male<-ord_deaths[ord_deaths$location_name=="Australia"&ord_deaths$sex_name=="Men", ]
+
+life_expectancy_australia_male <- life_expectancy[life_expectancy$Location %in% "Australia" & life_expectancy$Sex %in% "Total" & life_expectancy$Time %in% 2016, ]
+life_expectancy_australia_male<-life_expectancy_australia_male[-22, ] #remove last interval becaue we have 95+ twice
+ord_deaths_australia_male$ylls<-life_expectancy_australia_male$ex*ord_deaths_australia_male$val
+ylls<-ord_deaths_australia_male$val*life_expectancy_australia_male$ex
+
+#try it:
+sum_yl<-sum(ord_deaths_australia_male$ylls)
+premature_cost_australia<-sum_yl*520*4
+#try it with the formula used in pdf:
+3.09*cumprod(1-life_expectancy_australia_male$mx)
+sum(3.09*cumprod(1-life_expectancy_australia_male$mx))*4
+```
+
+
+
+chatgpt:
+```{r}
+# Sample Data Generation
+age_groups <- c("0-4", "4-10", "10-20", "20-30", "30-40")
+deaths <- c(500, 200, 150, 100, 50)
+mortality_rates <- c(0.001, 0.0015, 0.002, 0.0025, 0.003)
+life_expectancies <- c(40, 39, 38, 37, 36)
+
+# Create a dataframe
+data <- data.frame(Age_Group = age_groups,
+                   Deaths = deaths,
+                   Mortality_Rate = mortality_rates,
+                   Life_Expectancy = life_expectancies)
+
+# Initialize variables
+initial_people <- 500
+years_of_life_lost <- 0
+
+# Simulation for each age group
+for (i in seq_along(age_groups)) {
+  # Calculate the number of people alive in each successive year
+  data$People_Alive <- initial_people * cumprod(1 - data$Mortality_Rate)
+  
+  # Update remaining life expectancy
+  data$Remaining_Life_Expectancy <- pmax(0, data$Life_Expectancy - 1)
+  
+  # Sum years of life lost
+  years_of_life_lost <- years_of_life_lost + sum(data$People_Alive * (data$Life_Expectancy - data$Remaining_Life_Expectancy))
+  
+  # Update initial people for the next iteration
+  initial_people <- data$People_Alive[length(data$People_Alive)]
+}
+
+# Print the result
+cat("Total years of life lost:", years_of_life_lost, "\n")
+
+```
+
+
+
+
+##premature mortality with calculated Ylls:
+
+We use calculated YLLs from GDP 2019 for calculations. Due to missing data on RR we just projected the value form 2019 by multiplying it with the relative change of oao for the projected years.
+
+YLLs:
+```{r}
+ylls<-premature_mortality[premature_mortality$measure_id==4, ]
+ylls<-premature_mortality[premature_mortality$metric_id==1, ]
+ylls<-premature_mortality[premature_mortality$sex_name!="Both", ]
+
+#ylls<-premature_mortality[, ]
+
+```
+
+```{r}
+# Using aggregate to sum values by sex and age_group
+ylls$sex_name <- ifelse(ylls$sex_name=="Male", "Men", "Women")
+ylls <- aggregate(val ~ sex_name + age_name + location_name + year, data = ylls, FUN = sum)
+
+#for age group <20:
+ylls_child<-ylls[ylls$age_name=="<20 years",]
+ylls_child$sex_name <- ifelse(ylls_child$sex_name=="Men", "Boys", "Girls")
+#combine it with data_oao_child:
+data_oao_child<-merge(ylls_child, data_oao_child, by.x=c("year", "location_name", "sex_name"), by.y=c("Year", "Country", "Sex"))
+
+#for age group >20:
+ylls_adult<-ylls[ylls$age_name=="20+ years",]
+#combine it with data_oao_adult:
+data_oao_adult<-merge(ylls_adult, data_oao, by.x=c("year", "location_name", "sex_name"), by.y=c("Year", "Country.Region.World", "Sex"))
+```
+
+
+```{r}
+#add gpt/capita as prox:
+gdp<-read.csv("GDP_Worldbank.csv")
+
+#for age group <20:
+data_oao_child<-merge(gdp[, c(1, 48)], data_oao_child, by.x=c("Country.Name"), by.y=c("location_name"))
+data_oao_child$X2016..YR2016.<-as.numeric(data_oao_child$X2016..YR2016.)
+data_oao_child$premature_mortality<-data_oao_child$X2016..YR2016.*data_oao_child$val
+
+#for age group >20:
+data_oao_adult<-merge(gdp[, c(1, 48)], data_oao_adult, by.x=c("Country.Name"), by.y=c("location_name"))
+data_oao_adult$X2016..YR2016.<-as.numeric(data_oao_adult$X2016..YR2016.)
+data_oao_adult$premature_mortality<-data_oao_adult$X2016..YR2016.*data_oao_adult$val
+
+```
+
+rename columns:
+
+```{r}
+colnames(predictions_oao)[colnames(predictions_oao) == "direct_costs"] <- "direct_costs(thousands)"
+colnames(predictions_oao)[colnames(predictions_oao) == "the_total_mean"] <- "Total_health_expenditure_1000"
+colnames(predictions_oao)[colnames(predictions_oao) == "travel_cost"] <- "travel_cost(thousands)"
+colnames(population)[colnames(population) == "TPopulation1Jan"] <- "Population_1000"
+colnames(predictions_oao)[colnames(predictions_oao) == "oaoPopulation"] <- "oaoPopulation(thousands)"
+```
+
+
+
+
+#Abstract
+#Keywords
+#Introduction
+####Contribution
+####Question
+####Structure
+#Literature Review
+#Methods
+#Findings/Discussion
+#Conclusion
+####Contribution
