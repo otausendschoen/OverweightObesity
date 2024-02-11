@@ -113,7 +113,7 @@ urban_per$Year<-as.integer(urban_per$Year)
 
 
 
-## autoregression of 161 countries using c(2,1,0) and using exception .notnull with  c(2,2,0) and c(2,3,0)
+## autoregression of 161 countries using c(2,1,0) and using exception .notnull with  c(2,2,0)
 
 This is the model used to predict prevalence. I still have to experiment with the model parameters to find out the optimal combination. But for now I decided with to stick with these as the others did not work...
 So we fit an arimax(2,1,0) model and do this for men, women, girls and boys. We decided to leave out urbanization as a factor to enable us predicting until 2060. (data on urbanization only goes up to 2050)
@@ -165,8 +165,29 @@ for (country in unique(urban_per$Location)) {
     country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
     m_2020_2050_men <- rbind(m_2020_2050_men, data.frame(Country = country, MeanProjection = country_mean))
   }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
 
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast_men = as.numeric(forecasts_original_scale))
+    forecast_df_men <- rbind(forecast_df_men, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
+    m_2020_2050_men <- rbind(m_2020_2050_men, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error2 in block:", e))
+  })
+  }
 }
+
 
 # Print the results
 head(forecast_df_men)
@@ -193,8 +214,6 @@ for (country in unique(urban_per$Location)) {
 
   # Extract the time series and exogenous variables
   country_df$oao_logit <- log(country_df$oao / (1-country_df$oao))
-  country_df$oao_log <- log(country_df$oao)
-
   ts_data <- ts(country_df$oao_logit, start = min(country_df$Year), frequency = 1)
   
 
@@ -226,6 +245,27 @@ for (country in unique(urban_per$Location)) {
     # Calculate the mean projection for 2020-2060
     country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
     m_2020_2050_women <- rbind(m_2020_2050_women, data.frame(Country = country, MeanProjection = country_mean))
+  }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast_women = as.numeric(forecasts_original_scale))
+    forecast_df_women <- rbind(forecast_df_women, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
+    m_2020_2050_women <- rbind(m_2020_2050_women, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error2 in block:", e))
+  })
   }
 }
 
@@ -284,6 +324,27 @@ for (country in unique(urban_per$Location)) {
     country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
     m_2020_2050_boys <- rbind(m_2020_2050_boys, data.frame(Country = country, MeanProjection = country_mean))
   }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast_boys = as.numeric(forecasts_original_scale))
+    forecast_df_boys <- rbind(forecast_df_boys, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
+    m_2020_2050_boys <- rbind(m_2020_2050_boys, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error2 in block:", e))
+  })
+  }
 }
 
 # Print the results
@@ -339,6 +400,27 @@ for (country in unique(urban_per$Location)) {
     # Calculate the mean projection for 2020-2060
     country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
     m_2020_2050_girls <- rbind(m_2020_2050_girls, data.frame(Country = country, MeanProjection = country_mean))
+  }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast_girls = as.numeric(forecasts_original_scale))
+    forecast_df_girls <- rbind(forecast_df_girls, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
+    m_2020_2050_girls <- rbind(m_2020_2050_girls, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error2 in block:", e))
+  })
   }
 }
 
@@ -655,6 +737,22 @@ premature_mortality$af<-(premature_mortality$rr_values-1)/premature_mortality$rr
 premature_mortality$deaths_oao <- premature_mortality$val*premature_mortality$af
 ```
 
+change af to paf:
+
+```{r}
+
+oao_2019<-predictions_oao[predictions_oao$year==2019, c(1,17)]
+#premature_mortality<-merge(oao_2019, premature_mortality, by.x="Country.Name", by.y="location_name" )
+premature_mortality<-merge(premature_mortality, oao_2019, by.x="location_name", by.y="Country.Name" )
+
+premature_mortality$af<-(premature_mortality$Forecast_weighted*(premature_mortality$rr_values-1))/(premature_mortality$Forecast_weighted*(premature_mortality$rr_values-1)+1)
+premature_mortality$deaths_oao <- premature_mortality$val*premature_mortality$af
+
+
+```
+
+
+
 ```{r}
 ord_deaths<-premature_mortality[premature_mortality$measure_id==1, ]
 ord_deaths<-premature_mortality[premature_mortality$metric_id==1, ]
@@ -700,7 +798,7 @@ ord_deaths_australia$ylls_oao<-life_expectancy_australia$ex*ord_deaths_australia
 
 #try it:
 sum_yl<-sum(ord_deaths_australia$ylls)
-premature_cost_australia<-sum_yl*49876.7123761245#mulitply ylls with value of life year
+premature_cost_australia<-sum_yl*49876.7123761245 #mulitply ylls with value of life year
 (sum_yl_australia_mult<-sum_yl)
 (premature_australia_mult<-premature_cost_australia)
 
@@ -709,7 +807,7 @@ premature_cost_australia_oao<-sum_yl_oao*49876.7123761245
 sum_yl_oao
 premature_cost_australia_oao
 ```
-try it with given life expectation from all countries (loop through countries):
+try it with given life expectation from all countries (loop through countries) with all deaths and not with only oao deaths (without RR):
 ```{r}
 ord_deaths <- aggregate(val ~ age_name + location_name + year + ISO3_code, data = ord_deaths, FUN = sum)
 life_expectancy <- life_expectancy[life_expectancy$Sex %in% "Total" & life_expectancy$Time %in% 2016, ]
@@ -886,6 +984,7 @@ sum(3.09*cumprod(1-life_expectancy_australia_male$mx))*4
 
 
 
+
 ##premature mortality with calculated Ylls:
 
 We use calculated YLLs from GDP 2019 for calculations. Due to missing data on RR we just projected the value form 2019 by multiplying it with the relative change of oao for the projected years. (?)
@@ -929,17 +1028,21 @@ ylls_australia$rr_values <- ifelse(ylls_australia$cause_name == "Ischemic stroke
 )
 )
 )
+```
 
-#Attributable fraction:
+```{r}
+oao_2019<-predictions_oao[predictions_oao$year==2019, c(1,17)]
+ylls_australia<-merge(ylls_australia, oao_2019, by.x="location_name", by.y="Country.Name" )
 
-ylls_australia$af<-(ylls_australia$rr_values-1)/ylls_australia$rr_values
-ylls_australia$oao_yll<-ylls_australia$val*ylls_australia$af
+ylls_australia$af<-(ylls_australia$Forecast_weighted*(ylls_australia$rr_values-1))/(ylls_australia$Forecast_weighted*(ylls_australia$rr_values-1)+1)
+ylls_australia$oao_yll <- ylls_australia$val*ylls_australia$af
 (sum_yl_australia_oao_gbd<-sum(ylls_australia$oao_yll))
 (premature_australia_oao_gbd<-sum(ylls_australia$oao_yll)*49876.7123761245)
 (sum_yl_australia_gbd<-sum(ylls_australia$val))
 (premature_australia_gbd<-sum(ylls_australia$val)*49876.7123761245)
 
 ```
+
 Let´s compare the different methods:
 ```{r}
 cat("Ylls when using life expectancy * deaths:", sum_yl_australia_mult/10^9,"\n")
@@ -950,7 +1053,7 @@ cat("Costs when using life expectancy * deaths with RR:", premature_cost_austral
 cat("Ylls when using formula from authors:", sum_yl_australia_form/10^9, "\n")
 cat("Costs when using formula from authors:",premature_australia_form/10^9, "\n")
 cat("Ylls when using formula from authors with RR:", sum_yl_australia_form_oao/10^9, "\n")
-cat("Costs when using formula from authors:",premature_australia_form_oao/10^9, "\n")
+cat("Costs when using formula from authors with RR:",premature_australia_form_oao/10^9, "\n")
 
 cat("Ylls when using Ylls from GBD:", sum_yl_australia_gbd/10^9,"\n")
 cat("Costs when using Ylls from GBD:", premature_australia_gbd/10^9,"\n")
