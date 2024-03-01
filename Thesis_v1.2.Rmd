@@ -820,15 +820,15 @@ employment_income_predictions$travel_cost_1000<-employment_income_predictions$tr
 
 # Methods
 
-Based on Okunogbe A., Nugent R., Spencer G., et al., this paper asseses the current and future impacts of overweight and obesity between 2020 and 2060. More specifically, a cost-of illness approach as described in D P Rice in "Estimating the cost of illness.", splitting economic costs into direct and indirect costs is applied[@Rice1967]. This methodology is used to arrive at the impact of obesity in monetary terms. It is useful for understanding the detrimental effects of obesity in terms of agenda-setting and policy prioritization.   
-The analysis includes estimates until 2050 and 2060, following the approach of Okunogbe A., Nugent R., Spencer G., et al.. Estimations are done on a country-level basis of in total 161 countries. Data is sourced from publicly available databases, detailed information on the respective data and calculations is described in the corresponding section. This paper aims at making various calculations as comprehensible and transparent as possible which is why a detailed overview of the data used can be seen in *Table 1*. This includes different parameters used for calculations and projections regarding the costs of overweight and obesity.
+Based on *Okunogbe A., Nugent R., Spencer G., et al.*, this paper asseses the current and future impacts of overweight and obesity between 2020 and 2060. More specifically, a cost-of illness approach as described in *Rice DP.* in *Estimating the cost of illness.*, splitting economic costs into direct and indirect costs is applied[@Rice1967]. This methodology is used to arrive at the impact of obesity in monetary terms. It is useful for understanding the detrimental effects of obesity in terms of agenda-setting and policy prioritization.   
+The analysis includes estimates until 2050 and 2060, following the approach of *Okunogbe A., Nugent R., Spencer G., et al.*. Estimations are done on a country-level basis of in total 161 countries. Data is sourced from publicly available databases, detailed information on the respective data and calculations is described in the corresponding section. This paper aims at making various calculations as comprehensible and transparent as possible which is why a detailed overview of the data used can be seen in *Table 1*. This includes different parameters used for calculations and projections regarding the costs of overweight and obesity. A detailed table of all abbreviations can be seen in the appendix.
 
 \hspace{-2.5em}
 
 
 ```{r, echo = F, eval = T, include = T}
 projection_data <- data.frame(
-  Parameter = c("Overweight and Obesity prevalence", "Relative population numbers", "Obesity Attributable Fraction (OAF) of Health Expenditures", "Average travel distance to and from health facility", "Fuel efficiency", "Gas price", "Countries by Income Group", "inpatient/outpatient visits - HIC", "inpatient/outpatient visits - LIC/LMIC/HMIC", "Absolute population numbers", "Years of lifes lost (YLLs)", "Relative Risk (RR)", "Value of a life year (GDP/Capita)", "Employement rate", "Wages", "Excess days absent - LIC/LMIC/HMIC", "Excess days absent - HIC", "Presenteeism rate - LIC/LMIC/HMIC", "Presenteeism rate - HIC"),
+  Parameter = c("Overweight and obesity prevalence", "Relative population numbers", "Obesity attributable fraction (OAF) of health expenditures", "Average travel distance to and from health facility", "Fuel efficiency", "Gas price", "Countries by income Group", "inpatient/outpatient visits - HIC *", "inpatient/outpatient visits - LIC/LMIC/HMIC *", "Absolute population numbers", "Years of lifes lost (YLLs)", "Relative risks (RR)", "Value of a life year (GDP/Capita)", "Employement rate", "Wages", "Excess days absent - LIC/LMIC/HMIC *", "Excess days absent - HIC *", "Presenteeism rate - LIC/LMIC/HMIC *", "Presenteeism rate - HIC *"),
   Source = c("NCD-Risk Factor Collaboration (1975-2016)", "United Nations Population Division (UNPD)", "OECD Health Policy Studies", "Okunogbe A. et al.", "Internatianal Energy Agency", "World Bank - World Development Indicators", "World Bank - World Development Indicators", "Espallardo, Olga et al.", "Kudel et al.", "United Nations Population Division (UNPD)", "IHME - GBD Study", "IHME - GBD Study", "World bank - World Development Indicators", "World bank - World Development Indicators", "ILO global wage report", "Kudel et al.", "Espallardo, Olga et al.", "Kudel et al.", "DiBonaventura et al."),
   stringsAsFactors = FALSE
 )
@@ -836,6 +836,7 @@ projection_data <- data.frame(
 knitr::kable(projection_data, "latex", caption = "Parameters and souces") %>%
   kable_styling(latex_options = c("scale_down", "HOLD_position"))
 ```
+(\*) *HIC: high-income countries, LIC: low-income countries, LMIC: lower-middle-income countries, HMIC: upper/higher-middle-income countries*
 
 
 \hspace{-2.5em}
@@ -849,7 +850,7 @@ The paper is therefore divided into 3 sections:
 
 It starts by inspecting the current situation of obesity prevalence and projecting this into 2060 by fitting autoregressive models to forecast future behavior based on past behavior data. 
 We can then move on to direct and indirect costs, starting by closely inspecting direct costs. These include direct medical costs and direct non-medical costs.
-Indirect costs will be treated as the last part and consist of costs due to premature mortality and costs resulting from productivity losses. In regards to productivity losses we can differentiate between absenteeism and presenteeism costs. All these components will be covered in detail below. An overview of the architecture can be seen in Figure 1.1.[@Okunogbee006351]
+Indirect costs will be treated as the last part and consist of costs due to premature mortality and costs resulting from productivity losses. In regards to productivity losses we can differentiate between absenteeism and presenteeism costs. All these components will be covered in detail below. An overview of the architecture can be seen in Figure 1[@Okunogbee006351].
 
 ```{r, echo = F, eval = T, include = T, fig.cap = "Architecture",out.width="99%"}
 knitr::include_graphics("Cost_compenents.png")
@@ -864,22 +865,22 @@ Calculating any type of cost related to overweight and obesity requires data on 
 
 ### Data
 
-Data from NCD Risk Collaboration group is used as a main basis for projecting future overweight and obesity prevalence. More specifically, this data includes country-level annual prevalence values for the years 1975 to 2016. Notably, these values encapsulate all BMI categories[@NCD]. We thus aggregate these categories to form a comprehensive perspective referred to as "overweight and obesity." In the context of this paper, the term "overweight and obesity" refers to BMI values above the established overweight threshold of $25~\text{kg/m}^2$.  
-To ensure a nuanced and detailed analysis, projections are made by age group and sex. Data from NCD Risk Collaboration thus includes one dataset for all males (referred to as men) and females (women) above 20 years of age, and one dataset for males (boys) and females (girls) below 20 years of age. Each group's prevalence is projected separately.
+Data from *NCD Risk Collaboration group* is used as a main basis for projecting future overweight and obesity prevalence. More specifically, this data includes country-level annual prevalence values for the years 1975 to 2016. Notably, these values encapsulate all BMI categories[@NCD]. We thus aggregate these categories to form a comprehensive perspective referred to as "overweight and obesity". In the context of this paper, the term "overweight and obesity" refers to BMI values above the established overweight threshold of $25~\text{kg/m}^2$.  
+To ensure a nuanced and detailed analysis, projections are made by age group and sex. Data from *NCD Risk Collaboration* thus includes one dataset for all males (referred to as men) and females (women) above 20 years of age, and one dataset for males (boys) and females (girls) below 20 years of age. Each group's prevalence is projected separately.
 
-Furthermore, besides age and sex, Okunogbe A et al. identified *Demographic transition* and *Nutrition transition* as proxies for drives of trends in overweight and obesity prevalence.  
-Demographic transition is presented by the proportion of the total population in aggregated age groups: 'under 20 years', '20-54 years', '54-74 years' and 'above 75 years'. We shall therefore denote it *demographic change* when modelling. Data on the Population is sourced from United Nations Population Divisions, including past values from 1975-2016 and projections until 2060.[@UNPD]  
-Nutrition transition is approximated by *urbanization*, measured as the percentage of population living in urban areas. As population tends to shift from rural to urban environments, there is also a shift in dietary habits. This dimension should be captured by incorporating urbanization into our model.
+Furthermore, besides age and sex, *Okunogbe et al.* identified demographic transition and nutrition transition as proxies for drives of trends in overweight and obesity prevalence.  
+Demographic transition is presented by the proportion of the total population in aggregated age groups: 'under 20 years', '20-54 years', '54-74 years' and 'above 75 years'. We shall therefore denote it demographic change when modelling. Data on the Population is sourced from *United Nations Population Divisions*, including past values from 1975-2016 and projections until 2060[@UNPD].  
+Nutrition transition is approximated by urbanization, measured as the percentage of population living in urban areas. As population tends to shift from rural to urban environments, there is also a shift in dietary habits. This dimension should be captured by incorporating urbanization into our model.
 
 
-However, upon importing the data from the United Population Division it appears that contrary to the claims of Okunogbe et al., data on urbanization is only available until 2050. Unfortunately, this limits the projections of the developed time series model as we need data until 2060 to project overweight and obesity prevalence until 2060 with the corresponding covariate.
+However, upon importing the data from the *United Population Division* it appears that contrary to the claims of *Okunogbe et al.*, data on urbanization is only available until 2050. Unfortunately, this limits the projections of the developed time series model as we need data until 2060 to project overweight and obesity prevalence until 2060 with the corresponding covariate.
 In the subsequent section, we will delve into the intricacies of our modeling approach, shedding light on how various factors are incorporated into our models. This includes an explanation of why urbanization, a critical covariate in understanding obesity trends, unfortunately cannot be incorporated.
 
 ### Modelling and Projections
 
-Following the approach of *Okunogbe A et al.* in "Economic impacts of overweight and obesity: current and future estimates for eight countries" we estimated a multivariate autoregressive model. We intend to do this on a global scale, for 161 countries, extending the geographical aspect in another paper by Okunogbe A. et al. - "Economic impacts of overweight and obesity: current and future estimates for eight countries". [@Okunogbe2022]
+Following the approach of *Okunogbe et al.* in *Economic impacts of overweight and obesity: current and future estimates for eight countries* we estimated a multivariate autoregressive model. We intend to do this on a global scale, for 161 countries, extending the geographical aspect in another paper by *Okunogbe et al.* - *Economic impacts of overweight and obesity: current and future estimates for eight countries*[@Okunogbe2022].
 
-The model employed in this paper retains the same structure as the one proposed by Okunogbe et al., taking the following form for country i, year t and sex s:
+The model employed in this paper retains the same structure as the one proposed by *Okunogbe et al.*, taking the following form for country i, year t and sex s:
 
 \[ \Delta Y_{i,s,t} = \alpha + \sum_{h=1}^{n} \beta_h \Delta Y_{i,s,t-h} + X_{i,s,t-1}'\theta + \epsilon_{i,s,t} \]
 
@@ -890,13 +891,13 @@ where:
 - \( \alpha \) is the intercept.
 - \( \epsilon_{i,s,t} \) refers to the error term.
 
-With the intention of producing reasonable values of obesity prevalence for future years and trying to reproduce the modelling approach by Okunogbe et al.,we decided to stick with the same autoregressive order, degree of differencing, and external factors influencing the time series data.
+With the intention of producing reasonable values of obesity prevalence for future years and trying to reproduce the modelling approach by *Okunogbe et al.*,we decided to stick with the same autoregressive order, degree of differencing, and external factors influencing the time series data.
 
 When it comes to external factors influencing obesity prevalence, we initially wanted to implement demographic changes and urbanization in our case. For demographic changes ( Population) the age group 'under 20 years' was used as exogenous variable for boys and girls, and for male and female the remaining age groups (20-52 years, 54-74 years, 'above 75 years'). However, as already mentioned our analysis was constrained by the unavailability of urbanization data beyond 2050, leading us to solely rely on population change as an external factor. Despite our best efforts, the methodology employed by *Okunogbe et al.* for projections to 2060 remains unclear. While urbanization is acknowledged as a crucial variable in their approach, its absence in the available data poses a significant challenge. Consequently, we made the difficult decision to dismiss urbanization from our analysis. Importantly, our evaluation revealed that the inclusion or exclusion of urbanization barely changes the overall results. Excluding it therefore enabled us to provide projections until 2060 with a higher degree of certainty.
 
 
 When it comes to model fitting, the chosen lag of \( 2 \) degrees in the autoregressive component and first-order differencing of all variables ensures that our model accounts for past prevalence observations and captures the dynamics of demographic changes.  
-Okunogbe et al. determined the best univariate ARIMA model by using autocorrelation and partial auto-correlation plots along with Akaike Information Criterion (AIC) and Bayesian Information Criterion (BIC). Altough different ARIMA models with different combinations of autoregressive orders have been tested for this thesis, we decided to stick with the reference paper's approach to ensure consistency. Furthermore, data on different countries can be very different, making it difficult to find the perfect univariate ARIMA model for all countries. This could be be why the paper "Economic impacts of overweight and obesity: current and future estimates for 161 countries" by Okunogbe et al. uses a different approach namely multinomial regression when predicting overweight and obesity prevalence.
+*Okunogbe et al.* determined the best univariate ARIMA model by using autocorrelation and partial auto-correlation plots along with Akaike Information Criterion (AIC) and Bayesian Information Criterion (BIC). Altough different ARIMA models with different combinations of autoregressive orders have been tested for this thesis, we decided to stick with the reference paper's approach to ensure consistency. Furthermore, data on different countries can be very different, making it difficult to find the perfect univariate ARIMA model for all countries. This could be be why the paper *Economic impacts of overweight and obesity: current and future estimates for 161 countries* by *Okunogbe et al.* uses a different approach namely multinomial regression when predicting overweight and obesity prevalence.
 
 In the end, the model of [@Okunogbee006351] and this thesis takes the following form:
 
@@ -936,7 +937,7 @@ Most values for future years are very close to the estimates from the reference 
 ### Overweight and obesity attributable fraction
 
 
-The overweight and obesity attributable fraction (OAF) is the proportion of total health expenditure that can be attributed to overweight and obesity. Following the approach of the reference paper, data on OAF for 52 countries is sourced from the OECD Report [@OECD2019], more specifically from the Global Burden of Disease study. This study analyzes mortality on numerous different diseases, including 28 diseases which are evidently linked to overweight and obesity. The OAF values are presented as an average between 2020-2050 but unfortunately only represent 52 countries. It is therefore necessary to derive OAF values for countries not included in this study but very well included in this paper. We can see an overview of the 52 OAF values in *Figure 1.2*.
+The overweight and obesity attributable fraction (OAF) is the proportion of total health expenditure that can be attributed to overweight and obesity. Following the approach of the reference paper, data on OAF for 52 countries is sourced from the *OECD Report* [@OECD2019], more specifically from the Global Burden of Disease study. This study analyzes mortality on numerous different diseases, including 28 diseases which are evidently linked to overweight and obesity. The OAF values are presented as an average between 2020-2050 but unfortunately only represent 52 countries. It is therefore necessary to derive OAF values for countries not included in this study but very well included in this paper. We can see an overview of the 52 OAF values in *Figure 2*.
 
 \hspace{-2.5em}
 
@@ -954,7 +955,7 @@ In the end, we obtain the average prevalence in 2020-2050 for each country. The 
 
 
 By fitting a simple linear regression, we obtain a coefficient which can be used to estimate the OAF for countries not included in the report and also for predicting future OAF values.  
-Similar to the resulting model by Okunogbe A. et al., there is a significant positive association between OAF and obesity prevalence. (\( \beta =0.0889, p = 0.0351 \))(Figure 1.3)
+Similar to the resulting model by *Okunogbe A. et al.*, there is a significant positive association between OAF and obesity prevalence. (\( \beta =0.0889, p = 0.0351 \))(Figure 3)
 
 
 ```{r, eval = T, include = TRUE,fig.width=6, fig.height=4, fig.cap="Plot of OAF and obesity prevalence"}
@@ -984,20 +985,20 @@ Direct costs are the total medical costs associated with treating illnesses link
 
 Direct medical costs are expenditures that are directly attributable to patient care and occur in the diagnosis and treatment of a specific illness or health condition. These costs cover various aspects of healthcare services such as hospital care, drugs, visits to clinics, and medical interventions. They are essential components of the overall economic impact of a health condition as they play a crucial role in healthcare planning, resource allocation, and economic evaluations.
 
-Direct medical costs are calculated by using the OAF and medical expenses of each country. More specifically, data on total health expenditure is available for most countries from the WHO Global Health Expenditure Database. However, we are not interested in past values but in future values to predict direct medical costs. These are sourced from the Institute for Health Metrics and Evaluation[@IHME]. These values can then country,- and year-wise, be multiplied by the proportion of health expenditures that are attributable to the the overweight and obesity related diseases(OAF). We can see how direct medical costs are relatively simple to calculate, especially if the OAF is already available.  
+Direct medical costs are calculated by using the OAF and medical expenses of each country. More specifically, data on total health expenditure is available for most countries from the *WHO Global Health Expenditure Database.* However, we are not interested in past values but in future values to predict direct medical costs. These are sourced from the *Institute for Health Metrics and Evaluation*[@IHME]. These values can then country,- and year-wise, be multiplied by the proportion of health expenditures that are attributable to the the overweight and obesity related diseases(OAF). We can see how direct medical costs are relatively simple to calculate, especially if the OAF is already available.  
 This results in total direct medical costs (DMC), given by the following formula:
 
 
 \[ DMC = OAF \times Total Health Expenditure \]
 
-However, the dataset on total health expenditure unfortunately only includes data until the year 2050 which sets a limit when predicting future direct medical costs. The calculations for direct medical costs are therefore only made for the years 2019-2050. It is interesting to see that the reference paper includes results until 2060 but there is no description of how they deal with (missing) values from 2050-2060. Despite this, results of direct medical costs are very similar to the ones in the reference paper which can be seen in the appendix.(*ADD FIGURE OF ALL DIFFERENT COSTS IN THE END*)  Direct medical costs ranged from 821 785 in Tuvalo to 132 billions in China. It can very well be seen how these expenditures play a big role in total expenditures related to overweight and obesity, especially when comparing them to other costs.
+However, the dataset on total health expenditure unfortunately only includes data until the year 2050 which sets a limit when predicting future direct medical costs. The calculations for direct medical costs are therefore only made for the years 2019-2050. It is interesting to see that the reference paper includes results until 2060 but there is no description of how they deal with (missing) values from 2050-2060. Despite this, results of direct medical costs are very similar to the ones in the reference paper. An overview of all cost and predictions can be seen in the appendix. Direct medical costs ranged from 821 785 in Tuvalo to 132 billions in China. It can very well be seen how these expenditures play a big role in total expenditures related to overweight and obesity, especially when comparing them to other costs.
 
 \hspace{-2.5em}
 
 ```{r, eval = T, include = T}
-colnames<-c("Country","Year", "OAF", "Direct costs in thousands")
+colnames<-c("Country","Year", "OAF", "Direct costs in billions")
 
-sampleprojection<-(predictions_oao[c(9,3,26, 302, 319,318),c(1,3,6, 18) ])
+sampleprojection<-(predictions_oao[c(5,1,27, 296, 302,309),c(1,3,6, 18) ])
 knitr::kable(sampleprojection, col.names=colnames, "latex", caption = "Direct costs", row.names = F) %>%
   kable_styling(latex_options = c("scale_down", "HOLD_position"))
 
@@ -1060,13 +1061,13 @@ With these parameters set, we compute the ATC by multiplying them according to t
 
 
 Following the approach in the reference paper, global estimates for inpatient and outpatient visits per country are used. These estimates are assumed to stay constant when incorporating them in the calculation for future costs.  
-However, as these proxies are sourced from peer reviewed studies and there is no detail on which peer reviewed studies exactly are being used, this thesis uses income-level estimates for inpatient and outpatient visits. We have to keep in mind that the reference paper only needs estimates for eight countries, while we need different values for 161 nations.  Countries are thus divided into the income groups "low income" (LIC), "lower middle income"(LMIC), "upper/high middle income"(HMIC) and "high income"(HIC) using Worldbank's data on nations and income groups, telling us which countries belong to which income groups[@Worldbank].  
+However, as these proxies are sourced from peer reviewed studies and there is no detail on which peer reviewed studies exactly are being used, this thesis uses income-level estimates for inpatient and outpatient visits. We have to keep in mind that the reference paper only needs estimates for eight countries, while we need different values for 161 nations.  Countries are thus divided into the income groups "low-income countries" (LIC), "lower-middle-income countries"(LMIC), "upper/higher-middle- income countries"(HMIC) and "high-income countries"(HIC) using Worldbank's data on nations and income groups, telling us which countries belong to which income groups [@Worldbank].  
 The number of additional inpatient and outpatient visits taken as an estimation for various countries belonging to different income groups can be seen in *Table 4*:
 
 
-The study *The Impact of Severe Obesity on Healthcare Resource Utilisation in Spain* analyses healthcare resource use, including inpatient and outpatient visits in Spain[@Espallardo2017]. We extract numbers for inpatient and outpatient visits from this paper as Spain is a high income country and we use these values as a proxy for the corresponding groups. Inpatient visits are referred to as hospitalizations in this paper and outpatient visits as general practitioner, specialist and emergency room visits.
+The study *The Impact of Severe Obesity on Healthcare Resource Utilisation in Spain* analyses healthcare resource use, including inpatient and outpatient visits in Spain [@Espallardo2017]. We extract numbers for inpatient and outpatient visits from this paper as Spain is a high income country and we use these values as a proxy for the corresponding groups. Inpatient visits are referred to as hospitalizations in this paper and outpatient visits as general practitioner, specialist and emergency room visits.
 
-For other income groups, the paper *The association between body mass index and health and economic outcomes in Brazil* is taken as a reference. This is based on Brasil, a LMIC Country. We shall take this as a proxy for the remaining income groups. [@Kudel2018] Inpatient visits are referred to as hospitalizations in the corresponding paper and outpatient visits as general practitioner and emergency room visits.
+For other income groups, the paper *The association between body mass index and health and economic outcomes in Brazil* is taken as a reference. This is based on Brazil, a LMIC Country. We shall take this as a proxy for the remaining income group [@Kudel2018].  Inpatient visits are referred to as hospitalizations in the corresponding paper and outpatient visits as general practitioner and emergency room visits.
 
 \hspace{-2.5em}
 
@@ -1088,7 +1089,7 @@ knitr::kable(sampleprojection, col.names=colnames, "latex", caption = "Additiona
 
 Having covered ATC and additional inpatient/outpatient visits, we can now move on to the last part of calculating the direct non-medical costs which is to get the absolute number of overweight and obese individuals to calculate the total travel costs.
 
-Data on population is sourced from United Nation´s World Population Divisions Database. Following the predictions of direct medical costs, we combined the population dataset with our overweight and obesity predictions and calculated travel costs predictions until 2050 on a country-level basis.
+Data on population is sourced from United Nation's *World Population Divisions Database.* Following the predictions of direct medical costs, we combined the population dataset with our overweight and obesity predictions and calculated travel costs predictions until 2050 on a country-level basis.
 This is simply done by multiplying the overweight and obesity  prevalence by the corresponding population number, yielding the total number of overweight and obese people within each country.
 
 \hspace{-2.5em}
@@ -1097,7 +1098,7 @@ This is simply done by multiplying the overweight and obesity  prevalence by the
 ```{r, eval = T, include = T}
 colnames<-c("Country","Year", "Overweight and Obesity Population in thousands")
 
-sampleprojection<-(predictions_oao[c(9,3,26, 302, 319,318),c(1,3,23) ])
+sampleprojection<-(predictions_oao[c(5,1,27, 296, 302,309),c(1,3,23) ])
 #sampleprojection <- subset(predictions_oao[c(9, 3, 26, 302, 319, 318), ], select = c(1, 3, 23))
 
 knitr::kable(sampleprojection, col.names=colnames, "latex", caption = "Overweight and Obese Population", row.names=F) %>%
@@ -1108,73 +1109,73 @@ knitr::kable(sampleprojection, col.names=colnames, "latex", caption = "Overweigh
 \hspace{-2.5em}
 
 
-It is now possible to ultimately arrive with the travel costs by adding up total inpatient and outpatient travel costs. 
+It is now possible to ultimately arrive with at the travel costs by adding up total inpatient and outpatient travel costs. 
 
 \[ \text{Travel Costs} = \text{Inpatient Travel Costs} + \text{Outpatient Travel Costs}\]
 
 
-Summing the outpatient and inpatient travel Costs up to obtain total travel costs is done on a country level basis and for each year until 2050. 
+Summing the outpatient and inpatient travel costs up to obtain total travel costs is done on a country level basis and for each year until 2050. 
 
 
 ####  Informal Caregiver (ICG) costs
 \hspace{-2.5em}
-The last part of direct non-medical costs are informal caregiver costs. This includes travel cost of informal caregivers while assuming one informal caregiver per patient. Time costs are assumed to be included within the indirect costs from absenteeism which will be calculated in the subsequent section. Furthermore, to ensure consistency with the reference paper, ICG costs are only taken into account for impatient care. After considering these factors, ICG Costs are calculated by using \(\text{ATC} \times \text{N}_{\text{in}} \times \text{Population with Obesity} \) just as when calculating inpatient travel costs. With that being said, it is easy to see that ICG costs are only made up of inpatient travel costs which are can be calculated like already described above. Following the reference paper, data on informal caregiver time cost have thus been excluded.
+The last part of direct non-medical costs are informal caregiver costs. This includes travel cost of informal caregivers while assuming one informal caregiver per patient. Time costs are assumed to be included within the indirect costs from absenteeism which will be calculated in the subsequent section. Furthermore, to ensure consistency with the reference paper, ICG costs are only taken into account for inpatient care. After considering these factors, ICG Costs are calculated by using \(\text{ATC} \times \text{N}_{\text{in}} \times \text{Population with Obesity} \) just as when calculating inpatient travel costs. With that being said, it is easy to see that ICG costs only depend on the inpatient travel costs which can be calculated as already described above. Following the reference paper, data on informal caregiver time cost have thus been excluded.
 
-An overview of direct non-medical costs, consisting of inpatient, outpatient and ICG travel costs can be seen in *table 2.4*.
+An overview of direct non-medical costs, consisting of inpatient, outpatient and ICG travel costs can be seen in *Table 6*.
 
 \hspace{-2.5em}
 
 
 ```{r, eval = T, include = T}
-colnames<-c("Country","Year", "Direct non-medical costs")
+colnames<-c("Country","Year", "Direct non-medical costs in billions")
 
-sampleprojection<-(predictions_oao[c(9,3,26, 302, 319,318),c(1,3,25) ])
+sampleprojection<-(predictions_oao[c(5,1,27, 296, 302,309),c(1,3,25) ])
 knitr::kable(sampleprojection, "latex", col.names=colnames, caption = "Direct non-medical costs", row.names = F) %>%
   kable_styling(latex_options = c("scale_down", "HOLD_position"))
 ```
 
 
-### Indirect costs
+## Indirect costs
 
 
-We have now covered the most relevant aspects in terms of direct costs. We therefore move on to indirect costs, which refer to the  expenses due to premature mortality and productivity losses. Productivity losses can be furthermore divided into Absenteeism and Presenteism Cost.  
-Following the reference paper´s framework, tther cost components, such early retirement expenses and long-term disability costs, were left out as cross-national measurement of these was impractical. Additionally, there may be costs (such as worse academic success, less emotional support, and a decreased chance of promotion) and benefits (such as increased likelihood of promotion) connected with weight bias in various communities but yet research on the scope and direction of these effects has not been conducted internationally.  
-In regards to the subsequent sections, it is furthermore important to note that we assume the same employment rates by BMI status. Although it is conceivable that people who are obese may have lower employment rates than people in general, the available data is conflicting and equivocal.[@Okunogbee006351]
+We have now covered the most relevant aspects in terms of direct costs. We therefore move on to indirect costs, which refer to the  expenses due to premature mortality and productivity losses. Productivity losses can be furthermore divided into absenteeism and presenteeism costs.  
+Following the reference paper´s framework, other cost components, such early retirement expenses and long-term disability costs, were left out as cross-national measurement of these was impractical. Additionally, there may be costs (such as worse academic success, less emotional support, and a decreased chance of promotion) and benefits (such as increased likelihood of promotion) connected with weight bias in various communities but yet research on the scope and direction of these effects has not been conducted internationally.  
+In regards to the subsequent sections, it is furthermore important to note that we assume the same employment rates by BMI status. Although it is conceivable that people who are obese may have lower employment rates than people in general, the available data is conflicting and equivocal[@Okunogbee006351].
 
 
-####  Economic costs of premature mortality
+###  Economic costs of premature mortality
 \hspace{-2.5em}
-Economic costs of premature mortality is what we consider the economic costs of lives lost prematurely due to overweight and obesity attributable deaths. This computation consists of multiplying the total years of potential lives lost (YLL) among individuals who died due to overweight or obesity-related causes, by the economic value assigned to a life year.  
-There are multiple possible proxies for economic value of a life year such as annual wages or value of statistical life. But we ultimately decided to stick with GDP per capita as it recognizes all economic contributions regardless of job status. This adds an equitable perspective to the computation. This analysis furthermore extends this approach by incorporating a GDP multiplier to capture the effects associated with changes in national income, mortality or life expectancy. In alignment with the reference paper we apply a multiplier of *1.6* to each estimate as a global estimate.
+Economic costs of premature mortality is what we consider the economic costs of lives lost prematurely due to overweight and obesity attributable deaths. This computation consists of multiplying the total years of potential lives lost (YLLs) among individuals who died due to overweight or obesity-related causes, by the economic value assigned to a life year.  
+There are multiple possible proxies for economic value of a life year, for example annual wages. We ultimately decided to stick with GDP per capita as it recognizes all economic contributions regardless of job status. This adds an equitable perspective to the computation. This analysis furthermore extends this approach by incorporating a GDP multiplier to capture the effects associated with changes in national income, mortality or life expectancy. In alignment with the reference paper we apply a multiplier of 1.6 to each estimate as a global estimate.
 
 
-It is important to note that the approach of calculating premature mortality costs as described below might not fully align with the reference paper´s approach. The reason for this is missing data and that specific alternations as described below make calculations smoother and easier to follow.
+It is important to note that the approach of calculating premature mortality costs as described below might not fully align with the reference paper's approach. The reason for this is missing data and that specific alternations as described below make calculations smoother and easier to follow.
 
-However, the main aspect of the paper´s approach of using data of overweight and obesity related diseases from the Global Burden of Disease Study 2019 is also applied in this thesis. As the GDB study includes total deaths and Years of lives lost(YLLs) of various different diseases we filter out the 28 relevant diseases to start calculations. These are the same as the ones used when calculating the OAF. Only the specific diseases "Low back pain", "Gout", "Cataract" and "Osteoarthritis" could not included in the used dataset as they were not available in the Global Health Data Exchange Database. [@GBD2019] However, this should not pose a big problem as it is only a small part of the total overweight and obesity related diseases.  
-Following the approach of Okunogbe et al, the first step in determining premature mortality costs is getting the YLLs due to overweight and obesity related diseases. Just like in the reference paper, YLLs are at the core of calculating premature mortality costs. This aspect is therefore covered in detail below:
+However, the main aspect of the paper´s approach of using data of overweight and obesity related diseases from the Global Burden of Disease Study 2019 is also applied in this thesis. As the GDB study includes total deaths and years of lives lost(YLLs) of various different diseases we filter out the 28 relevant diseases to start calculations. These are the same as the ones used when calculating the OAF. Only the specific diseases "Low back pain", "Gout", "Cataract" and "Osteoarthritis" could not included in the used dataset as they were not available in the *Global Health Data Exchange Database*[@GBDCN2020]. However, this should not pose a big problem as it is only a small part of the total overweight and obesity related diseases.  
+Following the approach of *Okunogbe et al*, the first step in determining premature mortality costs is getting the YLLs due to overweight and obesity related diseases. Just like in the reference paper, YLLs are at the core of calculating premature mortality costs. This aspect is therefore covered in detail below.
 
 \hspace{-2.5em}
 
 **Years of Lives Lost**
 
-To make calculations easier, we directly used the YLLs values of the Global Burden of Disease Study 2019.[@GBD2019] These are not being used by Okunogbe et al. In the reference paper, YLLs are calculated by using life expectancy sourced from the World Population Prospect database. In short, the number of individuals who would have been alive in future years if they had not died from overweight and obesity in their death year, are estimated by calculating the product of the number of people in each age and sex cohort and the probability of surviving to the next year.
+To make calculations easier, we directly used the YLLs values of the Global Burden of Disease Study 2019[@GBDCN2020]. These are not being used by *Okunogbe et al.* In the reference paper, YLLs are calculated by using life expectancy sourced from the *World Population Prospect database.* In short, the number of individuals who would have been alive in future years if they had not died from overweight and obesity in their death year, are estimated by calculating the product of the number of people in each age and sex cohort and the probability of surviving to the next year.
 
 
-However, directly using the already calculated and available YLLs of the GDB Study 2019 makes the process of determining premature mortality costs much smoother, transparent and avoids unnecessary calculations. However, it is important to mention that reconstructing premature mortality costs this way makes the results in the end different to the results we obtained when using the original approach. Despite this, it is worth noticing that the reference paper´s approach of calculating YLLs has also been carried out and the results of that were very close to the reference paper´s numbers. (E.g Premature mortality costs Australia year 2019: 6.5 billion USD  whith reference paper´s approach vs 9.5 billion USD in reference paper). However, when using the simplified approach which we decided to stick with in the end, results can be up to about 100% higher. This is interesting to observe. We see how important YLLs are in the context of premature mortality costs and how different ways of calculating them can lead to discrepancies.
+However, directly using the already calculated and available YLLs of the GDB Study 2019 makes the process of determining premature mortality costs much smoother, more transparent and avoids unnecessary calculations. However, it is important to mention that reconstructing premature mortality costs this way makes the results in the end different to the results we obtained when using the original approach. Despite this, it is worth noticing that the reference paper's approach of calculating YLLs has also been carried out and the results of that were very close to the reference paper's numbers. (e.g Premature mortality costs Australia year 2019: 6.5 billion USD  whith reference paper's approach vs 9.5 billion USD in reference paper). However, when using the simplified approach which we decided to stick with in the end, results can be up to about 100% higher. This is interesting to observe. We see how important YLLs are in the context of premature mortality costs and how different ways of calculating them can lead to discrepancies.
 
 \hspace{-2.5em}
 
 **Relative Risk and Population Attributable Fraction**
 
 
-After obtaining the YLLs of overweight and obesity related diseases, the goal is to calculate the YLLs which are solely attributable to overweight and obesity. This can be illustrated with an example: There are 1 Million deaths of the overweight and obesity related disease *Diabetes*. However a lot of theses deaths are attributable to different factors other than overweight and obesity. 
+After obtaining the YLLs of overweight and obesity related diseases, the goal is to calculate the YLLs which are solely attributable to overweight and obesity. This can be illustrated with an example: There are one million deaths of the overweight and obesity related disease diabetes. However a lot of theses deaths are attributable to different factors other than overweight and obesity. 
 
 
 YLLs attributable to overweight and obesity are calculated by incorporating the relative risk and then deriving the population attributable fraction from this.  
-In this context, relative risk is a measure quantifying the likelihood of a particular disease occurring in a population without overweight or obesity compared to the overweight and obese population. The relative risk values are obtained from the GBD Study 2019.[@GBD2019] Sadly, we were only available to get the relative risks for the base year 2019, which brings us to the second marking difference in the approach of calculating premature mortality costs:
+In this context, relative risk is a measure quantifying the likelihood of a particular disease occurring in a population without overweight or obesity compared to the overweight and obese population. The relative risk values are obtained from the GBD Study 2019[@GBDCN2020]. Sadly, we were only available to get the relative risks for the base year 2019, which brings us to the second marking difference in the approach of calculating premature mortality costs.
 
 
-Apparently Okunogbe A. et al. use relative risks projections for 2019-2060 in the paper *"Economic impacts of overweight and obesity: current and future estimates for 161 countries"*, making it possible to calculate the resulting YLLs for future years. However, the process in the primary reference paper *"Economic impacts of overweight and obesity: current and future estimates for eight countries"* is more complex and involves deriving the relative risks from calculated PAF from *GDB 2019*. We found it more straightforward to utilize the provided Relative Risks (RR) directly, as detailed data sources for Population Attributable Fractions (PAFs) were not readily accessible through extensive literature research. Unfortunately though, we could only access Relative Risks values from 2019. These are the reasons why this paper primarily calculates the YLLs and costs for the base year 2019. Predictions are made by calculating the relative change of overweight and obesity prevalence for each country relative to the base year 2019 as described subsequently. The difference of the approach described above and the reference paper´s approach is why the results of premature mortality quite different to the ones in the reference paper.
+Apparently *Okunogbe A. et al.* use relative risks projections for 2019-2060 in the paper *Economic impacts of overweight and obesity: current and future estimates for 161 countries*, making it possible to calculate the resulting YLLs for future years. However, the process in the primary reference paper *Economic impacts of overweight and obesity: current and future estimates for eight countries* is more complex and involves deriving the relative risks from calculated PAF from *GDB 2019*. We found it more straightforward to utilize the provided relative risks (RR) directly, as detailed data sources for population attributable fractions (PAFs) were not readily accessible through extensive literature research. Unfortunately though, we could only access relative risks values from 2019. These are the reasons why this paper primarily calculates the YLLs and costs for the base year 2019. Predictions are made by calculating the relative change of overweight and obesity prevalence for each country relative to the base year 2019 as described subsequently. The difference of the approach described above and the reference paper´s approach is why the results of premature mortality quite different to the ones in the reference paper.
 
 
 As already mentioned, by incorporating relative risks, the population attributable fraction (PAF) can be calculated to measure the proportion of YLLs that are due to overweight and obesity.
@@ -1193,13 +1194,13 @@ where:
 **YLLs attributable and final costs (OAO YLLs)**
 
 
-By multiplying the PAFs with the number of years of lives lost of the relevant diseases, we get the years of lives lost which are evidently linked to overweight and obesity. We shall denote them "Overweight and obesity attributable years of lives lost (OAO YLLs)" This number is ultimately multiplied by the value of a life year. *The described calculations are done age-group (*a*), sex(*s*) and cause/disease(*c*) wise* and can be summarized by the following formula:
+By multiplying the PAFs with the number of years of lives lost of the relevant diseases, we get the years of lives lost which are evidently linked to overweight and obesity. We shall denote them "Overweight and obesity attributable years of lives lost (OAO YLLs)" This number is ultimately multiplied by the value of a life year. Computations are conducted at the national level and disease/cause-wise. We do not differentiate by sex but rather utilize the average relative risk values for men and women, resulting in an average population attributable fraction (PAF) and subsequently years of lives lost (YLLs) for both genders combined. Calculations are specifically for the year 2019. The following formula describes the last step of arriving at OAO YLLs, representing the total years of lives lost (YLLs) attributable to overweight and obesity across all nations (n) and diseases/causes (c). It sums up the YLLs for each cause and country, accounting for all instances where premature mortality is linked to overweight and obesity.
 
 \[
-\sum_{s,a,c} {\text{Ylls due to overweight and obesity}} = \sum_{s,a,c} PAF \times \sum_{s,a,c} \text{Total Ylls}
+\sum_{n,c} {\text{Ylls due to overweight and obesity}} = \sum_{n,c} PAF \times \sum_{n,c} \text{Total Ylls}
 \]
 
-After obtaining the Years of lives lost which are attributable to overweight and obesity, the mortality cost are obtained by multiplying the YLLs by the value of a life year (proxied by GDP/capita). Following the approach of the reference paper, we also apply a GDP multiplier of 1.6.  
+After obtaining the years of lives lost which are attributable to overweight and obesity, the mortality cost are obtained by multiplying the YLLs by the value of a life year (proxied by GDP/capita). Following the approach of the reference paper, we also apply a GDP multiplier of 1.6.  
 We can see observe the following values: 
 
 \[
@@ -1207,21 +1208,21 @@ We can see observe the following values:
 \]
 
 
-For a better understanding and overview of the different parameters with its values can be seen in *table 3.1*.  
+For a better understanding and overview of the different parameters with its values can be seen in *Table 7*.  
 We can see observe the following values/columns: 
 
-- *Country*: The Location where the data is observed
-- *Value of a life year*: Proxied by gdp per capita
-- *Year*: Year of observation
-- *YLLs*: Total Years of lives lost
-- *OAO YLLs*: Overweight and obesity related lives lost
-- *Premature mortality costs*
+- Country: The Location where the data is observed
+- Value of a life year: Proxied by gdp per capita
+- Year: Year of observation
+- YLLs: Total years of lives lost
+- OAO YLLs: Overweight and obesity related lives lost
+- Premature mortality costs
 
 \hspace{-2.5em}
 
 
 ```{r, eval = T, include = T}
-colnames<-c("Country", "Value of a life year", "Year", "YLLs", "OAO YLLs", "Premature Mortality cost")
+colnames<-c("Country", "Value of a life year", "Year", "YLLs", "OAO YLLs", "Premature Mortality cost in billions")
 
 sampleprojection<-head(ylls_all_sum[,c(4,2,5,6,7,8) ])
 knitr::kable(sampleprojection, col.names=colnames, "latex", caption = "Table Premature mortality") %>%
@@ -1234,23 +1235,23 @@ knitr::kable(sampleprojection, col.names=colnames, "latex", caption = "Table Pre
 It is important to note that these are only the costs for the year 2019. A complete list for all years and countries can be seen in the appendix. We will now apply a simple method of projecting these into the future.
 
 
-As already mentioned, in terms of predicting future costs we lack data on the development of relative risks values. This thesis thus assumes that they stay constant over time, enabling us to predict premature mortality costs in a simple but meaningful way by only using the overweight and obesity prevalence levels. For instance, we take the the costs of a country like Australia in the year 2019 as base costs and calculate the costs of each subsequent year until 2050 by multiplying the 2019 value with the relative change of the obesity prevalence. We decided to only do it until the year 2050 since it does not make sense to have some costs predicted until 2050 and some until 2060 so as we want to opt for a complete picture in  the end.  
+As already mentioned, in terms of predicting future costs we lack data on the development of relative risks values. This thesis thus assumes that they stay constant over time, enabling us to predict premature mortality costs in a simple but meaningful way by only using the overweight and obesity prevalence levels. For instance, we take the the costs of a country like Australia in the year 2019 as base costs and calculate the costs of each subsequent year until 2050 by multiplying the 2019 value with the relative change of the obesity prevalence. We decided to only do it until the year 2050 since it does not make sense to have some costs predicted until 2050 and some until 2060 as we wanted to opt for a complete picture in  the end.  
 
 
-## Reduced productivity due to additional absenteeism:
+### Reduced productivity due to additional absenteeism:
 
 The costs of missed work due to illnesses or other health problems are what is called additional or excess absenteeism. Excess absenteeism specifically indicates the average additional days of work missed as a result of obesity. The computation for the cost of lost productivity involves the following, sourced from *Okunugbe et al.*:
 
 
 \[
-\text{Premature mortality costs} = \text{OAO YLLs} \times \text{Value of a Life year} \times \text{GDP Multiplier}
+\text{Absenteeism cost} = \text{Emplyed Pop. with Obesity} \times \text{Additional Days Absent} \times \text{Average Daily Wages}
 \]
 
 
 where:
 
 
-- Employed Population with Obesity = \( \text{Employment rate} \times \text{Working Age Pop} \times \text{Obesity Prevalence} \)
+- Employed Population with Obesity = \( \text{Employment rate} \times \text{Working Age Pop.} \times \text{Obesity Prevalence} \)
 
 - Excess Days Absent = Average number of additional days of absenteeism by working population with obesity compared to normal weight working population.
 
@@ -1260,26 +1261,35 @@ where:
 - Average Daily Wages = \(\frac{\text{Average yearly wage}}{\text{Average number of workdays a year}}\)
 
 
-### Average daily wages
+**Average daily wages**
 
-Following the approach of the reference paper, we used *ILO´s* global wage report for data on country-wise average daily wages.[@ILO]  
-Unfortunately there is no description of how the author deals with future wages in the reference paper other than that "projections for wages have been done".[@Okunogbee006351] In the absence of specific guidance, we made the pragmatic assumption of a reasonable two percent inflation rate to project future wages. While this inflation-based approach offers a straightforward method for projecting future wages, it's important to acknowledge its limitations. Economic conditions and wage growth rates can vary over time and across different regions and projections should therefore be interpreted with caution.
+\hspace{-2.5em}
 
-### Employment rate
+Following the approach of the reference paper, we used *ILO´s* global wage report for data on country-wise average wages [@ILO].
 
-Data on employment rates has been drawn from the *World Development Indicators Database* - contrary to Okunogbe et al. as the stated data resource was not discoverable for us. While the reference paper "Economic impacts of overweight and obesity: current and future estimates for eight countries" cited the OECD Economic Outlook study for employment projections, we encountered challenges in locating relevant data within that study. Additionally, "Economic impacts of overweight and obesity: current and future estimates for 161 countries" relied on internally generated projections for employment rates, lacking sufficient detail for replication.
+However, this source only provides average yearly wages. Unfortunately there is no guideline on how exactly the authors of the reference paper dealt with this to calculate the average daily wages. We decided to calculate it by dividing the  average yearly wage by the average workdays a year. Average workdays a year represents the average number of working days in a year.  
+A conservative global estimate of 248 for this parameter is adopted for the purpose of this analysis. It’s important to note that
+this figure serves as a minimum baseline, accommodating diverse cultural practices and holidays across various regions. Actual workdays per year may vary, typically falling within the range of 248 to 260 days. Assumptions are based on global work culture and holiday patterns.
 
 
-Consequently, we opted for a simplified approach of assuming a constant employment rate, given data constraints. Despite this, it is important to recognize the limitations in capturing shifts in employment dynamics over time. Data on employment rates for the year 2019 are used as a baseline. [@Worldbank]  
+Unfortunately there is no description of how the author deals with future wages in the reference paper other than that "projections for wages have been done" [@Okunogbee006351]. In the absence of specific guidance, we made the pragmatic assumption of a reasonable two percent inflation rate to project future wages. While this inflation-based approach offers a straightforward method for projecting future wages, it's important to acknowledge its limitations. Economic conditions and wage growth rates can vary over time and across different regions and projections should therefore be interpreted with caution.
+
+**Employment rate**
+\hspace{-2.5em}
+
+Data on employment rates has been drawn from the *World Development Indicators Database* - contrary to *Okunogbe et al.* as the stated data resource was not discoverable for us. While the reference paper *Economic impacts of overweight and obesity: current and future estimates for eight countries* cited the OECD Economic Outlook study for employment projections, we encountered challenges in locating relevant data within that study. Additionally, *Economic impacts of overweight and obesity: current and future estimates for 161 countries* relied on internally generated projections for employment rates, lacking sufficient detail for replication.
+
+
+Consequently, we opted for a simplified approach of assuming a constant employment rate, given data constraints. Despite this, it is important to recognize the limitations in capturing shifts in employment dynamics over time. Data on employment rates for the year 2019 are used as a baseline [@Worldbank].    
 The corresponding code can be seen in the appendix.
 
 
-### Excess days absent
+**Excess days absent**
 
 Similar to outpatient/inpatient visits, exact sources of the used excess days absent are not indicated in the reference paper. Data on excess days absent is referenced to as "sourced by literature review" which makes it challenging to find the exact values that they used. Additionally, it is hard to get a suitable global estimate for 161 countries. As described in the chapter *Inpatient/Outpatient visits* we thus decided to split the data into low-income and high-income groups, making it possible to have individual parameters tailored to the variations observed among different countries.
 
 
-To ensure consistency, we decided to use Kudel´s research regarding body mass index and health outcomes in Brazil again for excess days absent in low-income countries. All values provided by the paper are for specific BMI categories. We thus have to calculate the weighted average of additional days absent for individuals in different obesity classes (overweight, obesity class I, obesity class II, obesity class III) using the provided prevalence rates and absenteeism rates. The classes with the corresponding absenteeism rates in percent according to *Kudel et al.* are:
+To ensure consistency, we decided to use *Kudel's* research regarding body mass index and health outcomes in Brazil again for excess days absent in low-income countries. All values provided by the paper are for specific BMI categories. We thus have to calculate the weighted average of additional days absent for individuals in different obesity classes (overweight, obesity class I, obesity class II, obesity class III) using the provided prevalence rates and absenteeism rates. The classes with the corresponding absenteeism rates in percent according to *Kudel et al.* are:
 
 \hspace{-2.5em}
 
@@ -1298,7 +1308,7 @@ knitr::kable(obesity_data, "latex", col.names=colnames, caption = "Absenteeism P
 \hspace{-2.5em}
 
 
-An Absenteeism Rate of 6.46% means that individuals missed approximately 6.46% of total working days due to a certain condition(overweight and obesity). We thus have to derive the number of additional days absent in absolute numbers as we see subsequently. The weighted average of additional days absent for individuals in different obesity classes can be calculated using the following formula:
+An absenteeism rate of 6.46% means that individuals missed approximately 6.46% of total working days due to a certain condition(overweight and obesity). We thus have to derive the number of additional days absent in absolute numbers as we see subsequently. The weighted average of additional days absent for individuals in different obesity classes can be calculated using the following formula:
 
 \[ \text{Weighted Average} = \frac{\sum_{i=1}^{n} \text{Absenteeism Rate}_i \times \text{Prevalence Rate}_i}{\sum_{i=1}^{n} \text{Prevalence Rate}_i} \]
 
@@ -1318,8 +1328,8 @@ Where:
 - \( \text{Normal Absenteeism Rate} \) represents the average absenteeism rate for normal weight individuals. Following Kudel et al., it is assumed to be \( 6.21 \).
 - \( \text{Average Working Days Per Year} \) represents the average number of working days in a year. A conservative global estimate of 248 is adopted for the purpose of this analysis. It's important to note that this figure serves as a minimum baseline, accommodating diverse cultural practices and holidays across various regions. Actual workdays per year may vary, typically falling within the range of 248 to 260 days. Assumptions are based on global work culture and holiday patterns.
 
-The corresponding code used for calculations can be seen in the Appendix.  
-A similiar approach has been applied to the remaining countries but with data on absenteeism sourced from Keramat et al.[@Keramat2020] The table with the applied rates can be seen below.
+The corresponding code used for calculations can be seen in the appendix.  
+A similiar approach has been applied to the remaining countries but with data on absenteeism sourced from *Keramat et al*[@Keramat2020]. The table with the applied rates can be seen below.
 
 \hspace{-2.5em}
 
@@ -1337,7 +1347,7 @@ knitr::kable(obesity_data, "latex", col.names=colnames, caption = "Absenteeism P
 
 \hspace{-2.5em}
 
-However, the study by Keramat et al - *"Gender differences in the longitudinal association between obesity, and disability with workplace absenteeism in the Australian working population"* - does not provide absenteeism rate but absenteeism in absolute numbers. This means the values \( 0.71, 1.14, 1.23, 1.79 \) in *table 3.3* do not represent the percentage of days missed like in the previous table. They represent the average days missed due due to overweight and obesity corresponding to the overweight class. *Average Working Days Per Year* does not have to be used anymore, resulting in a relatively accurate estimate since *Average Working Days Per Year* can vary a lot between different countries. See *Figure 3.1* for the original values and the appendix for the corresponding code.
+However, the study by *Keramat et al* - *Gender differences in the longitudinal association between obesity, and disability with workplace absenteeism in the Australian working population* - does not provide absenteeism rate but absenteeism in absolute numbers. This means the values \( 0.71, 1.14, 1.23, 1.79 \) in *Table 9* do not represent the percentage of days missed like in the previous table. They represent the average days missed due due to overweight and obesity corresponding to the overweight class. *Average Working Days Per Year* does not have to be used anymore, resulting in a relatively accurate estimate since *Average Working Days Per Year* can vary a lot between different countries. See *Figure 3.1* for the original values and the appendix for the corresponding code.
 
 ```{r, echo = F, eval = T, include = T, fig.cap = "Average missed days of Work"}
 knitr::include_graphics("C:\\Users\\Admin\\Desktop\\Thesis\\absenteeism.png")
@@ -1348,7 +1358,7 @@ knitr::include_graphics("C:\\Users\\Admin\\Desktop\\Thesis\\absenteeism.png")
 
 \hspace{-2.5em}
 
-In the end, we can see how the resulting values of costs due to absenteeism depend highly on these values. For a quick overview of 2019 values see *Table 3.2*, also including direct costs, travel costs and premature mortality costs of 4 different nations as a comparison. A complete lists of all years with all countries  can be seen in the appendix. Values for absenteeism costs are not as high as the values in the reference paper which very likely is due to the low number of additional days absent we used by *Keramat et al.*.
+In the end, we can see how the resulting values of costs due to absenteeism depend highly on these values. For a quick overview of 2019 values see *Table 10*, also including direct costs, travel costs and premature mortality costs of four different nations as a comparison. A complete lists of all years with all countries  can be seen in the appendix. Values for absenteeism costs are not as high as the values in the reference paper which very likely is due to the low number of additional days absent we used by *Keramat et al.*.
 
 
 *Direct medical costs in thousands Direct nonmedical costs in thousand*
@@ -1380,8 +1390,8 @@ where:
 
 - Excess Presenteeism Rate = Rate of Reduced Productivity among employees with obesity.
 
-Calculations are relatively simple since most of the parameters are already available because we needed them for absenteeism anyways. Data on employment and wages has already been sourced so the only thing which additionally required is the presenteeism rate. According to Okunugbe et al. this is again *"sourced from peer-reviewed studies"*, unfortunately lacking specific information on which exact studies.  
-We decided to use the same resources that we used in calculating absenteeism again but unfortunately the study by *Espallardo et al.* does not include values for presenteeism. We used the paper *"Obesity in Germany and Italy: prevalence, comorbidities, and associations with patient outcomes"* by DiBonaventura et al. instead. With it, it is possible to use presenteeism rates of Germany for high-income countries. For the other countries, data from Kudel et al. is used.
+Calculations are relatively simple since most of the parameters are already available because we needed them for absenteeism anyways. Data on employment and wages has already been sourced so the only thing which additionally required is the presenteeism rate. According to *Okunugbe et al.* this is again "sourced from peer-reviewed studies", unfortunately lacking specific information on which exact studies.  
+We decided to use the same resources that we used in calculating absenteeism again but unfortunately the study by *Espallardo et al.* does not include values for presenteeism. We used the paper *Obesity in Germany and Italy: prevalence, comorbidities, and associations with patient outcomes* by *DiBonaventura et al.*. instead[@DiBonaventura2018]. With it, it is possible to use presenteeism rates of Germany for high-income countries. For the other countries, data from *Kudel et al.* is used.
 
 
 Like in the chapter before, the weighted mean has to be calculated and the code for that can be seen in the appendix. Presenteeism rates and weights for computing the mean can be seen in the tables below.
@@ -1402,7 +1412,7 @@ knitr::kable(obesity_data, col.names = colnames, format = "latex", caption = "Pr
 
 \hspace{-2.5em}
 
-It is important to mention here that the presenteeism rate of the class "Overweight" is not incorporated into calculations since the mean does not differ significantly according to *Kudel et al.*. The values in *Table 3.3* are used as a proxy for LIC, LMIC and HMIC countries. *Table 3.6* indicates the values sourced from *DiBonaventura et al.* and is applied to HIC countries.
+It is important to mention here that the presenteeism rate of the class "Overweight" is not incorporated into calculations since the mean does not differ significantly according to *Kudel et al.*. The values in *Table 3.3* are used as a proxy for LIC, LMIC and HMIC countries. *Table 12* indicates the values sourced from *DiBonaventura et al.* and is applied to HIC countries.
 
 \hspace{-2.5em}
 
@@ -1422,7 +1432,7 @@ knitr::kable(obesity_data, col.names = colnames, format = "latex", caption = "Pr
 \hspace{-2.5em}
 
 Similar to before, a table including estimates for absenteeism costs can be seen below. Estimates are roughly in within the same range to the reference paper but there can be high variations depending on the country. Interestingly, it seems that the Countries Germany and Brazil are very close to the reference paper´s value, indicating that the reference paper used similar presenteeism rates for these countries and probably applied other rates for different countries.
-*Direct Costs medical costs in thousands, Direct nonmedical costs in thousand*
+
 \hspace{-2.5em}
 
 ```{r, eval = T, include = T}
@@ -1436,8 +1446,8 @@ knitr::kable(sample, col.names = colnames, format = "latex", caption = "Presente
 
 ## Total costs
 
-Adding all the different described cost parameters together results into our final projections until the year 2050. It is unfortunate that predictions are only until 2050 instead of 2060 but we nevertheless get a good feeling of future costs.  
-It is especially interesting to see the different cost components in comparison to each other. *Figure 3.2* can be used for that by visualizing data of Germany, Australia and United Arab Emirates. All values are costs from 2019.  
+Adding all the different described cost parameters together results into  our final projections up to the year 2050. Despite the limitation of predictions extending only to 2050 rather than 2060, these projections provide valuable insights into future costs.  
+It is especially interesting to see the different cost components in comparison to each other. *Figure 5* can be used for that by visualizing data of Germany, Australia and United Arab Emirates. All values are costs from 2019.  
 A table including all years and all countries in this study can be seen in the appendix. 
 
 
@@ -1445,7 +1455,7 @@ A table including all years and all countries in this study can be seen in the a
 library(ggplot2)
 
 # Define the data
-colnames <- c("Country", "Direct Costs in thousands", "Travel Costs in thousands", "Premature Mortality Costs in thousands", "Absenteeism costs in thousands", "Presenteeism costs in thousands")
+colnames <- c("Country", "Direct Costs in billions", "Travel Costs in billions", "Premature Mortality Costs in billions", "Absenteeism costs in billions", "Presenteeism costs in billions")
 sample <- employment_income_predictions[c(1793,289, 4961), c(1, 25, 32, 34, 37,40)]
 # Convert 'sample' to a data frame
 sample_df <- as.data.frame(sample)
@@ -1472,7 +1482,7 @@ ggplot(sample_df_long, aes(x = Country, y = Cost, fill = Cost_Type)) +
 library(ggplot2)
 
 # Define the data
-colnames <- c("Country", "Direct Costs in thousands", "Travel Costs in thousands", "Premature Mortality Costs in thousands", "Absenteeism costs in thousands", "Presenteeism costs in thousands")
+colnames <- c("Country", "Direct Costs in billions", "Travel Costs in billions", "Premature Mortality Costs in thousands", "Absenteeism costs in billions", "Presenteeism costs in billions")
 sample <- employment_income_predictions[c(1793,289, 4961)+31, c(1, 25, 32, 34, 37,40)]
 # Convert 'sample' to a data frame
 sample_df <- as.data.frame(sample)
@@ -1630,7 +1640,7 @@ ylls_all_sum$premature_mortality_costs<-ylls_all_sum$oao_yll*as.numeric(ylls_all
 
 ```
 
-We now compute the relative change of overweight and obesity prevalence for each country relative to the base year 2019 and calculate the projectings of premature mortality costs based on that relative change.
+We now compute the relative change of overweight and obesity prevalence for each country relative to the base year 2019 and calculate the projections of premature mortality costs based on that relative change.
 ```{r, echo= T, eval = F, include = T}
 #create relative change
 predictions_oao <- predictions_oao %>%
@@ -1786,6 +1796,19 @@ chunk4 <- sampleprojection[(3 * chunk_size + 1):num_rows, ]
 knitr::kable(chunk4, col.names = colnames, "latex") %>%
   kable_styling(latex_options = c("scale_down", "HOLD_position"))
 
+```
+
+
+## Table of abbreviations 
+```{r, echo = F, eval = T, include = T}
+projection_data <- data.frame(
+  Abbreveation = c("OAO", "OAF","DMC","ATC","ICG", "YLLs","OAO YLLs", "HIC", "LIC", "LMIC", "HMIC", "RR", "PAF"),
+  Definition = c("Overweight and Obesity", "Obesity attributable fraction of health expenditures", "Direct medical Costs", "Average transport costs","Informal caregiver","Years of lives lost","Overweight and obesity related lives lost", "High-income countries", "Low-income countries", "Lower-middle-income countries", "Upper/higher-middle-income countries", "Relative Risk", "Population attributable fraction"),
+  stringsAsFactors = FALSE
+)
+#knitr::kable(projection_data,caption = "Parameters and sources", "latex")
+knitr::kable(projection_data, "latex", caption = "Abbreviations") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
 ```
 
 
