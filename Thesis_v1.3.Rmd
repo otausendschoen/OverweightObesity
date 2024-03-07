@@ -1,0 +1,2130 @@
+---
+title: "The Monetary Impact of Overweight and Obesity"
+author: "Oliver Tausendschön"
+date: "2023-11-06"
+bibliography: references.bib
+link-citations: yes
+output:
+  bookdown::pdf_document2:
+    toc: false
+---
+
+
+```{r, echo=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, eval = TRUE, include = FALSE, cache = T)
+library(kableExtra)
+```
+
+```{r}
+data_oao<-read.csv("NCD_RisC_Lancet_2017_BMI_age_standardised_country_adapted.csv")
+```
+
+```{r}
+colnames(data_oao)[8]<-"obesity"
+colnames(data_oao)[11]<-"severe_obesity"
+colnames(data_oao)[14]<-"underweight"
+colnames(data_oao)[17] <-"under-normal_weight"
+colnames(data_oao)[20] <-"normal_weight"
+colnames(data_oao)[23]<-"overweight"
+colnames(data_oao)[26]<-"moderate_obesity"
+data_oao<-data_oao[, -c(6,7,9,10,12,13,15,16,18,19,21,21,22,24,25,27,28,29,30,31,32,33,34)]
+#create healthy weight
+data_oao["healthy_weight"]<-data_oao$underweight + data_oao$`under-normal_weight` + data_oao$normal_weight
+#create oao
+data_oao["oao"]<-data_oao["obesity"]+ data_oao["overweight"]
+data_oao_men<-data_oao[data_oao$Sex == "Men",]
+data_oao_women<-data_oao[data_oao$Sex == "Women",]
+
+```
+
+```{r}
+countries<-c("EST", "FRA", "PER", "IND", "LVA", "COL", "IDN", "JPN", "LTU", "HUN", "SVN", "POL", "HRV", "RUS", "SVK", "CRI", "ROU", "CZE", "ZAF", "KOR", "CHE", "CHN", "NZL", "ISR", "AUT", "GBR", "LUX", "BGR", "ISL", "AUS", "CHL", "BRA", "MEX", "ITA", "IRL", "SWE", "GRC", "DNK", "FIN", "BEL", "ESP", "NOR", "ARG", "PRT", "CYP", "MLT", "CAN", "DEU", "NLD", "TUR", "SAU", "USA")
+oafs<-sort(c(5.5834, 6.1217, 7.5428, 7.7690, 6.0866, 4.6819, 9.1332, 9.0287, 5.5180, 6.4475, 8.2022, 9.090, 6.906, 6.676, 7.669, 4.878, 9.393, 10.065, 6.008, 8.536, 10.733, 6.449, 6.960, 6.022, 8.376, 8.691, 9.354, 9.743, 10.124, 9.714, 6.648, 7.063, 8.470, 6.246, 9.140, 6.195, 8.072, 9.033, 6.956, 7.534, 10.345, 8.613, 8.356, 9.910, 8.586, 8.934, 10.628, 7.920, 11.337, 11.576, 12.652, 13.531)/100)
+
+Country <- c("Estonia","France","Peru","India","Latvia","Colombia","Indonesia","Japan","Lithuania", "Hungary", "Slovenia", "Poland", "Croatia", "Russian Federation", "Slovakia","Costa Rica","Romania","Czech Republic","South Africa","South Korea", "Switzerland","China","New Zealand","Israel","Austria","United Kingdom","Luxembourg","Bulgaria","Iceland","Australia","Chile","Brazil","Mexico","Italy","Ireland","Sweden","Greece","Denmark","Finland","Belgium","Spain","Norway","Argentina","Portugal","Cyprus","Malta","Canada","Germany","Netherlands","Turkey","Saudi Arabia","United States of America")
+```
+
+```{r}
+
+data_oao_child<-read.csv("NCD_RisC_Lancet_2020_BMI_child_adolescent_country.csv")
+colnames(data_oao_child)[12]<-"oao"
+data_oao_child<-data_oao_child[, c(1,2,3,4,5,12)]
+data_oao_child <- aggregate(oao ~ Country + Sex + Year, data = data_oao_child, FUN = mean) #we take the mean because we suppose that there are equally many indiviudals in each age-group
+data_oao_child_girls<-data_oao_child[data_oao_child$Sex == "Girls", ]
+data_oao_child_boys<-data_oao_child[data_oao_child$Sex == "Boys", ]
+```
+
+```{r}
+#add external proxies to develop ARIMAX (population change):
+
+population_per<-read.csv("WPP2022_PopulationByAge5GroupSex_Percentage_Medium.csv") #turkey missing?
+colnames(population_per)[13]<-"Year"
+colnames(population_per)[4] <- "ISO"
+colnames(population_per)[8] <- "Country"
+population_per<-population_per[population_per$Year >= "1975" & population_per$Year<="2060", ]
+population_per<-subset(population_per, ISO %in% unique(data_oao$ISO))
+#create Dataframes for all, child, and adults, always using the aggregate to use agegroups.
+ag_population_all<-aggregate(cbind(PopTotal, PopFemale, PopMale) ~ ISO + Year + Country + Location, data = population_per, sum)
+ag_population_child<-population_per[population_per$AgeGrp %in% c("0-4", "5-9", "10-14", "15-19"), ]
+ag_population_child <- aggregate(cbind(PopTotal, PopFemale, PopMale) ~ ISO + Year + Country + Location, data = ag_population_child, sum)
+ag_population_adult <- population_per[!(population_per$AgeGrp %in% c("0-4", "5-9", "10-14", "15-19")), ]
+ag_population_adult <- aggregate(cbind(PopTotal, PopFemale, PopMale) ~ ISO + Year + Country + Location, data = ag_population_adult, sum)
+
+
+#add external proxies to develop ARIMAX (urbanization):
+urban_per<-read.csv("AnnualUrbanPopMidYear-2050.csv",skip = 1, header = T) #only until 2050? We decided to predict oao prevalence without this factor as it only ranges to 2050 and not 2060.
+urban_per$Location<-trimws(urban_per$Location)
+urban_per<-subset(urban_per, Location %in% unique(data_oao$Country.Region.World))#no ISO --> A FEW COUNTRIES MISSING
+urban_per<-urban_per[, -c(1,3)]
+
+library(tidyr)
+# Reshape the dataframe
+urban_per <- pivot_longer(urban_per, cols = -Location, names_to = "Year", values_to = "UrbanPopulationPercentage")
+urban_per$Year <- gsub("X", "", urban_per$Year)
+urban_per <- urban_per[urban_per$Location != "Tokelau", ]
+urban_per <- urban_per[urban_per$Location != "Nauru", ]
+urban_per <- urban_per[urban_per$Location != "Singapore", ]
+urban_per <- urban_per[urban_per$Location != "Bermuda", ]
+urban_per <-urban_per[urban_per$Year!="2017",] #remove 2017 and 2018 to start with 2019
+urban_per <-urban_per[urban_per$Year!="2018",]
+library(dplyr)
+urban_per$Year<-as.integer(urban_per$Year)
+
+```
+
+```{r}
+library(forecast)
+
+forecast_df_men <- data.frame()
+m_2020_2050_men <- data.frame()
+for (country in unique(urban_per$Location)) {
+  country_df <- data_oao_men[data_oao_men$Country.Region.World == country, ]
+  ag_popu_df <- ag_population_adult[ag_population_adult$Location == country, ]
+  ag_popu_df2<-ag_popu_df[ag_popu_df$Year>=2019, ]
+  ag_popu_df<-ag_popu_df[ag_popu_df$Year<=2016, ]
+  print(country)
+
+  # Extract the time series and exogenous variables
+  country_df$oao_logit <- log(country_df$oao / (1-country_df$oao))
+  country_df$oao_log <- log(country_df$oao)
+
+  ts_data <- ts(country_df$oao_logit, start = min(country_df$Year), frequency = 1)
+  xreg_data <-ag_popu_df$PopMale
+  xreg_data2<-ag_popu_df2$PopMale
+
+
+  # Initialize arimax_model outside the tryCatch block
+  arimax_model <- NULL
+
+  tryCatch({
+    # Try fitting ARIMAX model
+    arimax_model <- Arima(ts_data, order = c(2, 1, 0), xreg = xreg_data)
+  }, error = function(e) {
+    # If an error occurs, print the error message
+    print(paste(country, "Error1:", e))
+  })
+
+  if (!is.null(arimax_model)) {
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast_men = as.numeric(forecasts_original_scale))
+    forecast_df_men <- rbind(forecast_df_men, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
+    m_2020_2050_men <- rbind(m_2020_2050_men, data.frame(Country = country, MeanProjection = country_mean))
+  }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast_men = as.numeric(forecasts_original_scale))
+    forecast_df_men <- rbind(forecast_df_men, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
+    m_2020_2050_men <- rbind(m_2020_2050_men, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error2 in block:", e))
+  })
+  }
+}
+
+
+# Print the results
+head(forecast_df_men)
+print(m_2020_2050_men)
+```
+
+
+
+```{r}
+library(forecast)
+
+forecast_df_women <- data.frame()
+m_2020_2050_women <- data.frame()
+for (country in unique(urban_per$Location)) {
+  country_df <- data_oao_women[data_oao_women$Country.Region.World == country, ]
+  urban_df <- urban_per[urban_per$Location == country, ]
+  ag_popu_df <- ag_population_adult[ag_population_adult$Location == country, ]
+  ag_popu_df2<-ag_popu_df[ag_popu_df$Year>=2019, ]
+  ag_popu_df<-ag_popu_df[ag_popu_df$Year<=2016, ]
+
+  
+  print(country)
+
+  # Extract the time series and exogenous variables
+  country_df$oao_logit <- log(country_df$oao / (1-country_df$oao))
+  ts_data <- ts(country_df$oao_logit, start = min(country_df$Year), frequency = 1)
+  
+
+  xreg_data <- ag_popu_df$PopFemale
+  xreg_data2 <- ag_popu_df2$PopFemale
+
+
+  # Initialize arimax_model outside the tryCatch block
+  arimax_model <- NULL
+
+  tryCatch({
+    # Try fitting ARIMAX model
+    arimax_model <- Arima(ts_data, order = c(2, 1, 0), xreg = xreg_data)
+  }, error = function(e) {
+    # If an error occurs, print the error message
+    print(paste("Error1:", e))
+  })
+
+  if (!is.null(arimax_model)) {
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast_women = as.numeric(forecasts_original_scale))
+    forecast_df_women <- rbind(forecast_df_women, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
+    m_2020_2050_women <- rbind(m_2020_2050_women, data.frame(Country = country, MeanProjection = country_mean))
+  }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast_women = as.numeric(forecasts_original_scale))
+    forecast_df_women <- rbind(forecast_df_women, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
+    m_2020_2050_women <- rbind(m_2020_2050_women, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error2 in block:", e))
+  })
+  }
+}
+
+# Print the results
+head(forecast_df_women)
+print(m_2020_2050_women)
+```
+
+
+```{r}
+library(forecast)
+
+forecast_df_boys <- data.frame()
+m_2020_2050_boys <- data.frame()
+for (country in unique(urban_per$Location)) {
+  country_df <- data_oao_child_boys[data_oao_child_boys$Country == country, ]
+  #urban_df <- urban_per[urban_per$Location == country, ]
+  ag_popu_df <- ag_population_child[ag_population_child$Location == country, ]
+  ag_popu_df2<-ag_popu_df[ag_popu_df$Year>=2019, ]
+  ag_popu_df<-ag_popu_df[ag_popu_df$Year<=2016, ]
+
+  print(country)
+
+  # Extract the time series and exogenous variables
+  country_df$oao_logit <- log(country_df$oao / (1-country_df$oao))
+  country_df$oao_log <- log(country_df$oao)
+
+  ts_data <- ts(country_df$oao_logit, start = min(country_df$Year), frequency = 1)
+  #xreg_data <- cbind(urban_df$UrbanPopulationPercentage, ag_popu_df$PopMale)
+  xreg_data<-ag_popu_df$PopMale
+  xreg_data2<-ag_popu_df2$PopMale
+
+  # Initialize arimax_model outside the tryCatch block
+  arimax_model <- NULL
+
+  tryCatch({
+    # Try fitting ARIMAX model
+    arimax_model <- Arima(ts_data,order = c(2, 1, 0), xreg = xreg_data)
+  }, error = function(e) {
+    # If an error occurs, print the error message
+    print(paste("Error1:", e))
+  })
+
+  if (!is.null(arimax_model)) {
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast_boys = as.numeric(forecasts_original_scale))
+    forecast_df_boys <- rbind(forecast_df_boys, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
+    m_2020_2050_boys <- rbind(m_2020_2050_boys, data.frame(Country = country, MeanProjection = country_mean))
+  }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast_boys = as.numeric(forecasts_original_scale))
+    forecast_df_boys <- rbind(forecast_df_boys, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
+    m_2020_2050_boys <- rbind(m_2020_2050_boys, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error2 in block:", e))
+  })
+  }
+}
+
+# Print the results
+head(forecast_df_boys)
+print(m_2020_2050_boys)
+```
+
+```{r}
+library(forecast)
+
+forecast_df_girls <- data.frame()
+m_2020_2050_girls <- data.frame()
+for (country in unique(urban_per$Location)) {
+  country_df <- data_oao_child_girls[data_oao_child_girls$Country == country, ]
+  urban_df <- urban_per[urban_per$Location == country, ]
+  ag_popu_df <- ag_population_child[ag_population_child$Location == country, ]
+  ag_popu_df2<-ag_popu_df[ag_popu_df$Year>=2019, ]
+  ag_popu_df<-ag_popu_df[ag_popu_df$Year<=2016, ]
+
+  print(country)
+
+  # Extract the time series and exogenous variables
+  country_df$oao_logit <- log(country_df$oao / (1-country_df$oao))
+  country_df$oao_log <- log(country_df$oao)
+
+
+  ts_data <- ts(country_df$oao_logit, start = min(country_df$Year), frequency = 1)
+  xreg_data <- ag_popu_df$PopFemale
+  xreg_data2<-ag_popu_df$PopFemale
+  # Initialize arimax_model outside the tryCatch block
+  arimax_model <- NULL
+
+  tryCatch({
+    # Try fitting ARIMAX model
+    arimax_model <- Arima(ts_data, order = c(2, 1, 0), xreg = xreg_data)
+  }, error = function(e) {
+    # If an error occurs, print the error message
+    print(paste("Error1:", e))
+  })
+
+  if (!is.null(arimax_model)) {
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast_girls = as.numeric(forecasts_original_scale))
+    forecast_df_girls <- rbind(forecast_df_girls, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
+    m_2020_2050_girls <- rbind(m_2020_2050_girls, data.frame(Country = country, MeanProjection = country_mean))
+  }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    #forecasts_original_scale <- exp(forecasts$mean)
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060), Forecast_girls = as.numeric(forecasts_original_scale))
+    forecast_df_girls <- rbind(forecast_df_girls, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  # Adjust to use values for the years 2020-2050
+    m_2020_2050_girls <- rbind(m_2020_2050_girls, data.frame(Country = country, MeanProjection = country_mean))
+  }, error = function(e) {
+    # Print an error message if the code block fails
+    print(paste("Error2 in block:", e))
+  })
+  }
+}
+
+# Print the results
+head(forecast_df_girls)
+print(m_2020_2050_girls)
+```
+
+```{r}
+#country/countries defined above!
+oaf_df_men<-data.frame(countries, Country, oafs)
+oaf_df_men<-merge(oaf_df_men, m_2020_2050_men, by = "Country")
+
+oaf_df_women<-data.frame(countries, Country, oafs)
+oaf_df_women<-merge(oaf_df_women, m_2020_2050_women, by = "Country")
+
+oaf_df_girls<-data.frame(countries, Country, oafs)
+oaf_df_girls<-merge(oaf_df_girls, m_2020_2050_girls, by = "Country")
+
+oaf_df_boys<-data.frame(countries, Country, oafs)
+oaf_df_boys<-merge(oaf_df_boys, m_2020_2050_boys, by = "Country")
+
+```
+```{r}
+final<-lm(oaf_df_men$oafs~oaf_df_men$MeanProjection)
+summary(final)
+plot(oaf_df_men$oafs~oaf_df_men$MeanProjection)
+abline(final$coefficients)
+```
+```{r}
+final<-lm(oaf_df_women$oafs~oaf_df_women$MeanProjection)
+summary(final)
+plot(oaf_df_women$oafs~oaf_df_women$MeanProjection)
+abline(final$coefficients)
+```
+
+```{r}
+final<-lm(oaf_df_girls$oafs~oaf_df_girls$MeanProjection)
+summary(final)
+plot(oaf_df_girls$oafs~oaf_df_girls$MeanProjection)
+abline(final$coefficients)
+```
+
+```{r}
+final<-lm(oaf_df_boys$oafs~oaf_df_boys$MeanProjection)
+summary(final)
+plot(oaf_df_boys$oafs~oaf_df_boys$MeanProjection)
+abline(final$coefficients)
+```
+
+```{r}
+merged_df_adult <- merge(ag_population_adult, forecast_df_men, by.x=c("Location","Year"),by.y = c("Country", "Year"))
+merged_df_adult <- merge(merged_df_adult, forecast_df_women, by.x=c("Location","Year"),by.y = c("Country", "Year"))
+
+merged_df_child <- merge(ag_population_child, forecast_df_boys, by.x=c("Location","Year"),by.y = c("Country", "Year"))
+merged_df_child <- merge(merged_df_child, forecast_df_girls, by.x=c("Location","Year"),by.y = c("Country", "Year"))
+predictions_oao_2060<-merge(merged_df_adult,merged_df_child, by=c("Location", "Year"))
+
+predictions_oao<-merge(merged_df_adult,merged_df_child, by=c("Location", "Year"))
+
+predictions_oao$Population_girls <- predictions_oao$PopFemale.y
+predictions_oao$Population_boys <- predictions_oao$PopMale.y
+predictions_oao$PopMale.y <- NULL; predictions_oao$PopFemale.y<-NULL
+predictions_oao$Population_men <- predictions_oao$PopMale.x
+predictions_oao$Population_women <- predictions_oao$PopFemale.x
+predictions_oao$PopMale.x<-NULL;predictions_oao$PopFemale.x<-NULL
+```
+
+```{r}
+predictions_oao$Forecast_weighted<-predictions_oao$Forecast_men*predictions_oao$Population_men/100+predictions_oao$Forecast_women*predictions_oao$Population_women/100+predictions_oao$Forecast_boys*predictions_oao$Population_boys/100+predictions_oao$Forecast_girls*predictions_oao$Population_girls/100
+
+
+#predictions_oao <- predictions_oao %>%
+ # group_by(Location) %>%
+  #mutate(Forecast_weighted = Forecast_weighted - Forecast_weighted * 0.05 * (Year - min(Year)))%>%
+ # ungroup()
+#52091.41-19981.95
+```
+
+```{r}
+predictions_average_oaf_oao <- aggregate(Forecast_weighted ~ Location, data = predictions_oao, FUN = mean)
+oaf_df_2060<-data.frame(countries, Country, oafs)
+predictions_average_oaf_oao<-merge(oaf_df_2060, predictions_average_oaf_oao, by.x = "Country", by.y ="Location")
+```
+
+```{r}
+final<-lm(predictions_average_oaf_oao$oafs~predictions_average_oaf_oao$Forecast_weighted)
+summary(final)
+plot(predictions_average_oaf_oao$oafs~predictions_average_oaf_oao$Forecast_weighted)
+abline(final$coefficients)
+```
+```{r}
+#direct_medical_costs_2019<-read.csv("GHE_2019.csv")
+#direct_medical_costs_2019<-direct_medical_costs_2019[-1,]
+#colnames(direct_medical_costs_2019)[4] <- "GHE_2019"
+
+#matrix<-cbind(1,predictions_oao$Forecast_weighted)
+#predictions_average_oaf_oao<-matrix%*%final$coefficients
+#average_weighted_oao_2060<-cbind(predictions_average_oaf_oao, average_weighted_oao_2060) #average_weighted_oao_2060 now includes the predicted oafs!
+#direct_medical_costs_2019<-merge(direct_medical_costs_2019,average_weighted_oao_2060, by.x="Countries", by.y = "Location")
+#direct_medical_costs_2019$GHE_2019 <- as.numeric(gsub(",", "", direct_medical_costs_2019$GHE_2019))
+#direct_medical_costs_2019$DMC<-direct_medical_costs_2019$predictions_average_oaf_oao*direct_medical_costs_2019$GHE_2019
+```
+
+```{r}
+matrix<-cbind(1,predictions_oao$Forecast_weighted) #create matrix to predict oao
+predictions_matrix_allyears_oaf<-matrix%*%final$coefficients #create predictions by using coefficients and matrix
+predictions_oao<-cbind(predictions_matrix_allyears_oaf, predictions_oao)
+#the predictions seem to make sense: compare them to oaf_df_2060
+```
+
+```{r}
+direct_medical_costs_2050<-read.csv("IHME_EXPECTED_HEALTH_SPENDING_2019_2050_Y2021M09D22.csv") #only until 2050?
+direct_medical_costs_2050<-direct_medical_costs_2050[, c(1,2,3,5,6)]
+predictions_oao<-merge(direct_medical_costs_2050,predictions_oao, by.x=c("location_name", "year"), by.y = c("Location", "Year"))
+predictions_oao$direct_costs_1000<-predictions_oao$predictions_matrix_allyears_oaf*predictions_oao$the_total_mean
+```
+
+```{r}
+gas<-read.csv("e2373858-926a-4755-8350-78bb920f6ee9_Data.csv")
+gas <- gas[, c(1,2,3,4,50,51,52,53,54,55,56,57,58, 59, 60, 61)]
+gas$gas2016<-gas$X2016..YR2016.
+#replace missing values by mean:
+gas$gas2016[gas$gas2016 == ".."] <- NA
+m <- mean(as.numeric(gas$gas2016), na.rm = TRUE)
+gas$gas2016[is.na(gas$gas2016)] <- m
+#reduce it to all countries
+gas<-subset(gas, Country.Code %in% unique(data_oao$ISO))
+```
+
+```{r}
+population<-read.csv("WPP2022_Demographic_Indicators_Medium.csv")
+population<-population[, c(4,10,13,14,15,16,17)]
+population<-population[population$Time>=2019, ]
+#reduce it to all countries
+population<-subset(population, ISO3_code %in% unique(data_oao$ISO))
+#rename columns
+colnames(population)[colnames(population) == "Time"] <- "Year"
+colnames(population)[colnames(population) == "ISO3_code"] <- "ISO"
+colnames(population)[colnames(population) == "TPopulation1Jan"] <- "Population_1000"
+```
+
+```{r}
+##HIC:
+#average outpatient visits per capita
+#1.32=Frequency of GP visit per month, 1.30 = normal weight
+GP<-1.32*12-1.30*12
+Specialist<-1.38*12-1.3*12
+ER<-1.68-1.65
+hic_outpatient<-GP+Specialist+ER
+#average inpatient(hospitalisations) visits per capita
+hospitalizations<-0.01
+hic_inpatient<-hospitalizations
+##LMIC:
+#4.36=Frequency of GP visit per 6 months, 4.35 = normal weight
+GP_mean<-(4.35+4.75+5.36+5.62)/4
+GP<-GP_mean*2-4.01*2
+ER_mean<-(0.52+0.55+0.68+0.88)/4
+ER<-ER_mean *2-0.44*2
+lmic_outpatient<-GP+ER
+#average inpatient(hospitalisations) visits per capita
+hosp_mean<-(0.21+0.41)/2
+hospitalizations<-hosp_mean*2-0.18*2
+lmic_inpatient<-hospitalizations
+#average outpatient visits per capita
+```
+
+```{r}
+income_groups<-read.csv("CLASS.csv")
+predictions_oao<-merge(predictions_oao, income_groups[, c(2,4)], by.x="iso3", by.y="Code")
+```
+```{r}
+predictions_oao$inpatient <- ifelse(predictions_oao$Income.group == "High income", hic_inpatient, lmic_inpatient)
+predictions_oao$outpatient<- ifelse(predictions_oao$Income.group == "High income", hic_outpatient, lmic_outpatient)
+```
+
+
+
+```{r}
+predictions_oao<-merge(predictions_oao, population[, c(2,3,4)], by.x=c("location_name", "year"), by.y=c("Location", "Year"))
+predictions_oao$oaoPopulation_1000<-predictions_oao$Population_1000*predictions_oao$Forecast_weighted
+
+predictions_oao<-merge(gas[, c(1,17)], predictions_oao, by.x="Country.Name", by.y="location_name", all.x=TRUE)
+
+#gas price per l * km * l/km:
+predictions_oao$atc<-as.numeric(predictions_oao$gas2016)*5*0.07
+#inpatient/outpatient
+outpatient_travel_cost<-predictions_oao$atc*predictions_oao$outpatient*predictions_oao$oaoPopulation
+inpatient_travel_cost<-predictions_oao$atc*predictions_oao$inpatient*predictions_oao$oaoPopulation*2 #we multiply with two to also include informal caregiver travel costs!
+predictions_oao$travel_cost_1000<-outpatient_travel_cost+inpatient_travel_cost
+```
+
+```{r}
+#predictions_oao<-predictions_oao[, -c(4,8,9,11,12)]
+predictions_oao<-predictions_oao[, -c(4,8,9,13,14)]
+
+```
+
+```{r}
+ylls_all<-read.csv("YLLs_all_2019.csv")
+ylls_all<-ylls_all[ylls_all$metric_id==1, ]
+ylls_all<-ylls_all[ylls_all$measure_id==4, ]
+ylls_all<-ylls_all[ylls_all$sex_name=="Both", ]
+ylls_all$rr_values <- ifelse(ylls_all$cause_name == "Ischemic stroke", 2.472,
+                    ifelse(ylls_all$cause_name == "Intracerebral hemorrhage", 3.066,
+                           ifelse(ylls_all$cause_name == "Subarachnoid hemorrhage", 3.066,
+                                  ifelse(ylls_all$cause_name == "Hypertensive heart disease", 3.122,
+                                         ifelse(ylls_all$cause_name == "Atrial fibrillation and flutter", 1.344,
+                                             ifelse(ylls_all$cause_name == "Asthma", 1.409,
+                                                 ifelse(ylls_all$cause_name == "Asthma", 1.409,
+                                                        ifelse(ylls_all$cause_name == "Diabetes mellitus type 2", 3.547,
+                                                              ifelse(ylls_all$cause_name == "Multiple myeloma", 1.09,
+                                                                                                                                                    ifelse(ylls_all$cause_name == "Leukemia", 1.111714286,
+                                                                                                                                                           ifelse(ylls_all$cause_name == "Alzheimer's disease and other dementias", 1.216,
+                                                                                                                              ifelse(ylls_all$cause_name == "Subarachnoid hemorrhage", 3.066,
+                                                                                                                                     ifelse(ylls_all$cause_name == "Hypertensive heart disease", 3.12,
+                                                                                                                                            ifelse(ylls_all$cause_name == "Ovarian", 1.038,
+                                                                                                                                                   ifelse(ylls_all$cause_name == "Kidney cancer", 1.28,
+                                                        ifelse(ylls_all$cause_name == "Thyroid cancer", 1.2585,1  # Default value if no condition is met--> mean of RR of all other ord = 1.998518
+                    )
+)
+)
+)
+)
+)
+)
+)
+)
+)
+)
+)
+)
+)
+)
+)
+```
+
+```{r}
+oao_2019<-predictions_oao[predictions_oao$year==2019, c(1,17)]
+
+ylls_all<-merge(ylls_all, oao_2019, by.x="location_name", by.y="Country.Name" )
+#calculating PAF
+ylls_all$af<-(ylls_all$Forecast_weighted*(ylls_all$rr_values-1))/(ylls_all$Forecast_weighted*(ylls_all$rr_values-1)+1)
+#calculating OAO YLLs
+ylls_all$oao_yll <- ylls_all$val*ylls_all$af
+
+```
+
+```{r, cache = T}
+# - add life expectancx dataset for iso codes
+life_expectancy_2100<-read.csv("WPP2022_Life_Table_Abridged_Medium_2022-2100.csv")
+life_expectancy_2100<-life_expectancy_2100[, c(4, 13,16,17,19,20,10,28)]
+life_expectancy_2022<-read.csv("WPP2022_Life_Table_Abridged_Medium_1950-2021.csv")
+life_expectancy_2022<-life_expectancy_2022[life_expectancy_2022$Time >=2016, c(4,13,16,17,19,20,10,28)]
+life_expectancy<-rbind(life_expectancy_2100, life_expectancy_2022)
+life_expectancy <- life_expectancy[life_expectancy$Location %in% unique(data_oao$Country.Region.World), ]
+
+
+#filter data on relevant countries/years:
+ylls_all <- ylls_all[ylls_all$location_name %in% unique(data_oao$Country.Region.World), ]
+country_iso<-unique(life_expectancy[, c(1,7)]) #add ISO codes to dataframe as some country-names may differ
+ylls_all<-merge(ylls_all, country_iso, by.x="location_name", by.y="Location")
+
+ylls_all_sum <- aggregate(cbind(val, oao_yll) ~ age_name + location_name + year + ISO3_code, data = ylls_all, FUN = sum)
+
+gdp<-read.csv("GDP_worldbank.csv")
+#MERGE YLLS WITH GDP:
+ylls_all_sum<-merge(gdp[, c(2, 48)], ylls_all_sum, by.x=c("Country.Code"), by.y=c("ISO3_code"))
+
+
+#ylls_all_sum$premature_mortality_costs<-ylls_all_sum$oao_yll*as.numeric(ylls_all_sum$X2016..YR2016.)*1.6
+ylls_all_sum$premature_mortality_costs<-ylls_all_sum$oao_yll*1.6
+
+```
+
+```{r}
+#create relative change
+predictions_oao <- predictions_oao %>%
+  group_by(Country.Name) %>%
+  mutate(Relative_Change = (Forecast_weighted - Forecast_weighted[year == min(year)]) / Forecast_weighted[year == min(year)]) %>%
+  ungroup()
+```
+
+```{r}
+#merge it to get future costs:
+#merge it with gdp to adjust gdp
+predictions_oao<-merge(gdp[, c(1, 48)], predictions_oao, by.x = "Country.Name")
+predictions_oao$X2016..YR2016.<-as.numeric(predictions_oao$X2016..YR2016.)
+predictions_oao <- predictions_oao %>%
+  group_by(Country.Name) %>%
+  mutate(X2016..YR2016. = X2016..YR2016. * (1 + 0.025)^(year - min(year))) %>%
+  ungroup()
+
+predictions_oao <- merge(predictions_oao, ylls_all_sum[, c(4,8)], by.x = "Country.Name", by.y="location_name")
+predictions_oao$premature_mortality_costs<-predictions_oao$premature_mortality_cost*predictions_oao$X2016..YR2016.
+
+# Multiply the New_Value with Relative_Change
+predictions_oao$premature_mort_costs <- (predictions_oao$Relative_Change+1.025)*predictions_oao$premature_mortality_costs
+
+```
+
+```{r}
+income<-read.csv("Earnings2019.csv")
+income<-income[income$classif1.label=="Economic activity (Aggregate): Total", ]
+income<-income[income$classif2.label=="Currency: U.S. dollars", ]
+income<-income[income$ref_area.label %in% unique(data_oao$Country.Region.World), ]
+
+
+income<-read.csv("cf68b894-02db-4037-b35e-8b66af165f6b_Data.csv")
+income<-income[income$Country.Name %in% unique(data_oao$Country.Region.World), ]
+income[206, 5]<-"36072.7" #not viewable in View? Add value from United kingdom of last year!
+income$daily_2019<-as.numeric(income$X2019..YR2019.)/248 #divide through average number of workdays
+```
+```{r}
+employment<-read.csv("employment2019.csv")
+
+#use data from previous years if NA:
+employment$employment_rate<-ifelse(employment$X2019..YR2019.=="..", employment$X2018..YR2018., employment$X2019..YR2019.)
+
+employment$employment_rate<-ifelse(employment$employment_rate=="..", employment$X2017..YR2017., employment$employment_rate)
+
+employment<-employment[employment$Country.Name %in% unique(data_oao$Country.Region.World), ]
+employment$employment_rate<-as.numeric(employment$employment_rate)/100
+```
+```{r}
+#parameter sourced from a scoping review of peer-reviewed studies! https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4225558
+#https://journals.lww.com/joem/abstract/2014/01000/sick_leave_days_and_costs_associated_with.3.aspx
+
+prevalence_rates<-c(0.349, 0.129, 0.037, 0.021)
+absenteeism_rates <- c(6.46, 6.82, 8.28, 10.03)
+
+
+# Calculate the weighted average
+weighted_average <- sum(absenteeism_rates * prevalence_rates) / sum(prevalence_rates)
+
+lic_additional_days_absent<-((weighted_average-6.21)*248)/100 #substract average absenteiism and multiple with average working days to get additional days absent
+lic_additional_days_absent
+```
+
+```{r}
+#calculate relative values of all classes for weighted average
+
+prevalence_rates<-c(0.34532, 0.14749, 0.05052, 0.02334)
+absenteeism_rates<-c(0.71, 1.14, 1.23, 1.79)
+
+weighted_average<-sum(absenteeism_rates*prevalence_rates)/sum(prevalence_rates)
+hic_additional_days_absent<-weighted_average-0.5
+
+```
+
+```{r}
+employment_income<-merge(income, employment[, c(1,2,8)], by="Country.Name")
+
+employment_income_predictions<-merge(employment_income,predictions_oao, by="Country.Name")
+
+
+#increase daily wages by 2 percentage each year
+employment_income_predictions <- employment_income_predictions %>%
+  group_by(Country.Name) %>%
+  mutate(daily_2019 = daily_2019 * (1 + 0.02)^(year - min(year))) %>%
+
+  #mutate(daily_2019 = daily_2019 + daily_2019 * 0.02 * (year - min(year)))%>%
+  ungroup()
+
+
+
+#add it based on income level
+employment_income_predictions$absenteeism<-ifelse(employment_income_predictions$Income.group == "High income", hic_additional_days_absent, lic_additional_days_absent)
+employment_income_predictions$absenteeism_cost<-employment_income_predictions$oaoPopulation_1000*1000*employment_income_predictions$employment_rate*employment_income_predictions$absenteeism*employment_income_predictions$daily_2019
+
+#employment_income_predictions <- rename(employment_income_predictions, wages_daily = daily_2019)
+
+```
+
+```{r}
+prevalence_rates <- c(34.9, 12.9, 3.7, 2.1)
+presenteeism_rates <- c(17.69, 19.28, 20.98, 26.47)
+significant <- c(T, T, TRUE, TRUE)
+
+
+# Calculate the weighted average
+weighted_average <- sum(presenteeism_rates * prevalence_rates * significant) / sum(prevalence_rates * significant)
+
+lic_presenteeism<-(weighted_average-17.69)/100
+
+```
+
+
+```{r}
+prevalence_rates <- c(35.24, 13.89, 4.79, 2.60)
+presenteeism_rates <- c(15.51, 16.97, 17.72, 24.97)
+significant <- c(TRUE, TRUE, TRUE, TRUE)  # Set to TRUE if the rate is significant, FALSE otherwise
+
+
+# Calculate the weighted average
+weighted_average <- sum(presenteeism_rates * prevalence_rates * significant) / sum(prevalence_rates * significant)
+
+hic_presenteeism<-(weighted_average-15.55)/100
+
+```
+
+```{r}
+#increase yearly wages by 2 percentage each year
+employment_income_predictions$yearly_wage<-as.numeric(employment_income_predictions$X2019..YR2019.)
+
+employment_income_predictions <- employment_income_predictions %>%
+  group_by(Country.Name) %>%
+  mutate(yearly_wage = yearly_wage * (1 + 0.02)^(year - min(year))) %>%
+
+#  mutate(yearly_wage= yearly_wage + yearly_wage * 0.02 * (year - min(year)))%>%
+  ungroup()
+
+
+employment_income_predictions$presenteeism<-ifelse(employment_income_predictions$Income.group == "High income", hic_presenteeism, lic_presenteeism)
+
+
+
+employment_income_predictions$presenteeism_cost<-employment_income_predictions$oaoPopulation_1000*1000*employment_income_predictions$employment_rate*employment_income_predictions$presenteeism*employment_income_predictions$yearly_wage
+
+```
+
+```{r}
+predictions_oao$direct_costs_1000<-predictions_oao$direct_costs_1000*1000/10^9
+predictions_oao$travel_cost_1000<-predictions_oao$travel_cost_1000*1000/10^9
+ylls_all_sum$premature_mortality_costs<-ylls_all_sum$premature_mortality_costs/10^9
+employment_income_predictions$premature_mort_costs<-employment_income_predictions$premature_mort_costs/10^9
+employment_income_predictions$premature_mortality_costs<-employment_income_predictions$premature_mortality_costs/10^9
+employment_income_predictions$absenteeism_cost<-employment_income_predictions$absenteeism_cost/10^9
+employment_income_predictions$presenteeism_cost<-employment_income_predictions$presenteeism_cost/10^9
+employment_income_predictions$direct_costs_1000<-employment_income_predictions$direct_costs_1000*1000/10^9
+employment_income_predictions$travel_cost_1000<-employment_income_predictions$travel_cost_1000*1000/10^9
+employment_income_predictions$total_costs<-employment_income_predictions$direct_costs_1000+employment_income_predictions$travel_cost_1000+employment_income_predictions$premature_mort_costs+employment_income_predictions$presenteeism_cost+employment_income_predictions$absenteeism_cost
+
+```
+
+
+
+# Abstract {-}
+
+
+This thesis presents a comprehensive analysis of the economic impacts of overweight and obesity, encompassing various cost components including direct medical costs, direct non-medical costs, premature mortality costs, absenteeism costs, and presenteeism costs. Drawing on extensive data from multiple sources, such as prevalence rates, medical costs, absenteeism rates, presenteeism rates, and economic indicators such as GDP per capita and average yearly wages, the analysis ranges from 2019 to 2050, projecting the future costs associated with overweight and obesity based on current trends.
+
+Findings from the analysis reveal a significant and increasing financial burden associated with overweight and obesity. Costs are projected to rise substantially over the coming years, underscoring the importance of addressing the issue of overweight and obesity to mitigate the economic impacts on our society. By using publicly available datasources and utilizing and building up on the work of *Okunogbe et al.*, this thesis contributes to the ongoing discourse on public health policy and decision-making.
+
+
+
+\newpage
+\tableofcontents
+\listoffigures
+\listoftables
+\newpage
+
+
+# Introduction
+
+According to data from the *Centers for Disease Control and Prevention* [@CDC] obesity affected more than 2 in five adults in 2019. Additionally, nearly one in three adults were overweight. In 2019 dollars, the estimated annual medical cost of obesity in the United States was nearly 173 billion USD. The prevalence of overweight and obesity has risen dramatically over the past few decades, reaching epidemic proportions worldwide. According to a recent article by the World Health Organization, the worldwide prevalence of obesity more than doubled between 1990 and 2020.
+This alarming trend has prompted widespread concern among policymakers, healthcare professionals, and researchers [@WHO2024].  
+While numerous studies have examined the health consequences of overweight and obesity, relatively few have comprehensively assessed their economic implications.
+
+
+The prevalence of overweight and obesity has emerged as a pressing public health issue with far-reaching implications for global health and well-being. Despite extensive research and public health interventions, the economic ramifications of overweight and obesity remain inadequately understood on a global level, presenting a significant gap in current literature. This thesis seeks to address this research gap by focusing on a comprehensive analysis encompassing 161 countries and spanning over the years 2020 to 2050. It aims at explaining the economic impacts of overweight and obesity in monetary terms and on a global scale to provide valuable insights that can inform policy decisions and interventions.
+
+
+Despite growing recognition of the health implications of overweight and obesity, the economic dimensions of this issue have received comparatively less attention. Understanding the economic costs associated with overweight and obesity is crucial for informing policy decisions, resource allocation, and intervention strategies aimed at mitigating its impact. By shedding light on the economic burden of overweight and obesity, this research seeks to contribute to a more comprehensive understanding of this complex issue and pave the way for effective public health interventions.
+
+
+# Methods
+
+Drawing from the methodology outlined by *Okunogbe A., Nugent R., Spencer G., et al.* in their paper *Economic impacts of overweight and obesity: current and future estimates for eight countries*, this paper asseses the current and future impacts of overweight and obesity between 2020 and 2050.  
+More specifically, a cost-of illness approach as described in *Rice DP.* in *Estimating the cost of illness*, splitting economic costs into direct and indirect costs is applied [@Rice1967]. This methodology is used to arrive at the impact of obesity in monetary terms. It is useful for understanding the detrimental effects of obesity in terms of agenda-setting and policy prioritization.
+
+The analysis includes estimates on a country-level basis until 2050, following the approach of *Okunogbe A., Nugent R., Spencer G., et al.*, also denoted the "reference paper" in this thesis. Notably, while projections were originally intended until 2060, limitations in data availability lead us to conclude the analysis at 2050. More specifically, overweight and obesity prevalence are projected until the year 2060 but costs associated with it are only projected until 2050. The reason for this is described subsequently.   
+However, this study extends beyond the scope of the reference paper, aiming to broaden the analysis to encompass 161 countries. Besides this, the approach of this thesis is very similar to the one of *Okunogbe et al.* with the goal of this thesis being to replicate the work of *Okunogbe et al.* to provide an additional insight into the global economic consequences of overweight and obesity as research in this area is quite scarce.
+
+
+Data is sourced from publicly available databases, detailed information on the respective data and calculations are described in the corresponding section. This paper aims at making various calculations as comprehensible and transparent as possible which is why a detailed overview of the data used can be seen in Table \@ref(tab:Parameters). Furthermore, the code used for essential calculations is systematically documented within the appendix. This practice extends to all subsequent chapters and associated computational analyses. The analysis was fully conducted using the R programming language.  
+Table \@ref(tab:Parameters) includes different parameters used for calculations and projections regarding the costs of overweight and obesity. A detailed table of all abbreviations can be seen at the end of the appendix  (Table \@ref(tab:Abbreviations)).
+
+\hspace{-2.5em}
+
+
+```{r Parameters, echo = F, eval = T, include = T}
+projection_data <- data.frame(
+  Parameter = c("Overweight and obesity prevalence", "Relative population numbers", "Obesity attributable fraction (OAF) of health expenditures", "Health Care Expenditures", "Average travel distance to and from health facility", "Fuel efficiency", "Gas price", "Countries by income Group", "Inpatient/Outpatient visits - HIC *", "Inpatient/Outpatient visits - LIC/LMIC/HMIC *", "Absolute population numbers", "Years of lifes lost (YLLs)", "Relative risks (RR)", "Value of a life year (GDP/Capita)", "Employement rate", "Wages", "Excess days absent - LIC/LMIC/HMIC *", "Excess days absent - HIC *", "Presenteeism rate - LIC/LMIC/HMIC *", "Presenteeism rate - HIC *"),
+  Source = c("NCD-Risk Factor Collaboration (1975-2016)", "United Nations Population Division (UNPD)", "OECD Health Policy Studies", "Institute for Health Metrics and Evaluation", "Okunogbe A. et al.", "Internatianal Energy Agency", "World Bank - World Development Indicators", "World Bank - World Development Indicators", "Espallardo, Olga et al.", "Kudel et al.", "United Nations Population Division (UNPD)", "IHME - Global Burden of Disease Study", "IHME - Global Burden of Disease Study", "World bank - World Development Indicators", "World bank - World Development Indicators", "ILO global wage report", "Kudel et al.", "Espallardo, Olga et al.", "Kudel et al.", "DiBonaventura et al."),
+  stringsAsFactors = FALSE
+)
+#knitr::kable(projection_data,caption = "Parameters and sources", "latex")
+knitr::kable(projection_data, "latex", caption = "Parameters and sources") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+(\*) *HIC: high-income countries, LIC: low-income countries, LMIC: lower-middle-income countries, HMIC: upper/higher-middle-income countries*
+
+
+\hspace{-2.5em}
+
+By utilizing the cost-of-illness approach, the impacts of overweight and obesity are divided into direct and indirect cost. This thesis shall explain these costs and the performed calculations in a systematic manner, conveying a complex issue and extensive calculations in a comprehensive but also comprehensible way. 
+The paper is therefore divided into 3 sections:
+
+1. Overweight and obesity prevalence
+2. Direct costs
+3. Indirect costs
+
+It starts by inspecting the current situation of obesity prevalence and projecting this into 2050 by fitting autoregressive models to forecast future behavior based on past behavior data. 
+We can then move on to direct and indirect costs, starting by closely inspecting direct costs. These include direct medical costs and direct non-medical costs.
+Indirect costs will be treated as the last part and consist of costs due to premature mortality and costs resulting from productivity losses. In regards to productivity losses we can differentiate between absenteeism and presenteeism costs. All these components will be covered in detail below. An overview of the architecture can be seen in Figure \@ref(fig:Architecture) [@Okunogbee006351].
+
+```{r Architecture, echo = F, eval = T, include = T, fig.cap = "Architecture",out.width="99%"}
+knitr::include_graphics("Cost_compenents.png")
+
+```
+
+
+
+## Overweight and obesity
+
+Calculating any type of cost related to overweight and obesity requires data on overweight and obesity prevalence. It is therefore a central object of this paper to predict future obesity prevalence in order to later use these predictions to arrive at estimates of the total economic costs related to overweight and obesity.
+
+### Data
+
+Data from *NCD Risk Collaboration group* is used as a main basis for projecting future overweight and obesity prevalence. More specifically, this data includes country-level annual prevalence values for the years 1975 to 2016. Notably, these values encapsulate all BMI categories [@NCD]. We thus aggregate these categories to form a comprehensive perspective referred to as "overweight and obesity". In the context of this paper, the term "overweight and obesity" refers to BMI values above the established overweight threshold of $25~\text{kg/m}^2$.  
+To ensure a nuanced and detailed analysis, projections are made by age group and sex. Data from *NCD Risk Collaboration* thus includes one dataset for all males (referred to as men) and females (women) above 20 years of age, and one dataset for males (boys) and females (girls) below 20 years of age. Each group's prevalence is projected separately.
+
+Furthermore, besides age and sex, *Okunogbe et al.* identified demographic transition and nutrition transition as proxies for drives of trends in overweight and obesity prevalence.  
+Demographic transition is presented by the proportion of the total population in aggregated age groups: 'under 20 years', '20-54 years', '54-74 years' and 'above 75 years'. We shall therefore denote it demographic change when modelling. Data on the population is sourced from *United Nations Population Divisions*, including past values from 1975-2016 and projections until 2060 [@UNPD].  
+Nutrition transition is approximated by urbanization, measured as the percentage of population living in urban areas. As population tends to shift from rural to urban environments, there is also a shift in dietary habits. This dimension should be captured by incorporating urbanization into our model.
+
+
+However, upon importing the data from the *United Population Division* it appears that contrary to the claims of *Okunogbe et al.*, data on urbanization is only available until 2050. Unfortunately, this limits the projections of the developed time series model: Data until 2060 is needed to project overweight and obesity prevalence when using the time series data from 1975-2016. 
+In the subsequent section, we will delve into the intricacies of our modeling approach, shedding light on how various factors are incorporated into our models. This includes an explanation of why urbanization, a critical covariate in understanding obesity trends, unfortunately cannot be incorporated.
+
+### Modelling and projections
+
+Following the approach of *Okunogbe et al.* in *Economic impacts of overweight and obesity: current and future estimates for eight countries* we estimated a multivariate autoregressive model. We intend to do this on a global scale, for 161 countries, extending the geographical aspect as it has been done in another paper by *Okunogbe et al.* - *Economic impacts of overweight and obesity: current and future estimates for eight countries* [@Okunogbe2022].
+
+The model employed in this paper retains the same structure as the one proposed by *Okunogbe et al.*, taking the following form for country \( i \), year \( t \) and sex \( s \):
+
+\begin{equation}
+\Delta Y_{i,s,t} = \alpha + \sum_{h=1}^{n} \beta_h \Delta Y_{i,s,t-h} + X_{i,s,t-1}'\theta + \epsilon_{i,s,t}
+(\#eq:model)
+\end{equation}
+where:
+
+- \( \Delta Y_{i,s,t} \) represents the differenced transformation of obesity prevalence with \( n \) degrees of lag,
+- \( X_{i,s,t} \) are external factors influencing obesity prevalence, 
+- \( \alpha \) is the intercept,
+- \( \epsilon_{i,s,t} \) refers to the error term.
+
+With the intention of producing reasonable values of obesity prevalence for future years and trying to reproduce the modelling approach by *Okunogbe et al.* we decided to stick with the same autoregressive order, degree of differencing, and external factors influencing the time series data.
+
+When it comes to external factors influencing obesity prevalence, we initially wanted to implement demographic changes and urbanization in our case. For demographic changes (Population) the age group 'under 20 years' was used as exogenous variable for boys and girls, and for male and female the remaining age groups (20-52 years, 54-74 years, 'above 75 years'). However, as already mentioned our analysis was constrained by the unavailability of urbanization data beyond 2050, leading us to solely rely on population change as an external factor. Despite our best efforts, the methodology employed by *Okunogbe et al.* for projections to 2060 remains unclear. While urbanization is acknowledged as a crucial variable in their approach, its absence in the available data poses a significant challenge. Consequently, we made the decision to dismiss urbanization from our analysis. Importantly, our evaluation revealed that the inclusion or exclusion of urbanization barely changes the overall results.
+
+However, we still projected overweight and obesity prevalence until 2060 as we intended to use the original time series data from 1975-2016. More specifically, the inclusion of demographic change and the time series data from 1975-2016 (42 years) necessitate projecting until 2060 (42 years). This is because the number of regressors provided for forecasting has to match the number used in fitting the ARIMA model.
+
+
+When it comes to model fitting, the chosen lag of \( 2 \) degrees in the autoregressive component and first-order differencing of all variables ensures that our model accounts for past prevalence observations and captures the dynamics of demographic changes.  
+*Okunogbe et al.* determined the best univariate ARIMA model by using autocorrelation and partial auto-correlation plots along with Akaike Information Criterion (AIC) and Bayesian Information Criterion (BIC). Altough different ARIMA models with different combinations of autoregressive orders have been tested for this thesis, we decided to stick with the reference paper's approach to ensure consistency. Furthermore, data on different countries can be very different, making it difficult to find the perfect univariate ARIMA model for all countries. This could be why the paper *Economic impacts of overweight and obesity: current and future estimates for 161 countries* by *Okunogbe et al.* uses a different approach, namely multinomial regression when predicting overweight and obesity prevalence.
+
+In the end, the model of [@Okunogbee006351] and this thesis takes the form of Equation \@ref(eq:model).
+
+
+\hspace{-2.5em}
+
+Furthermore, the prevalence of overweight and obesity data is bounded by an upper limit of 100% through a logit transformation, as represented by the formula:
+\[ \text{{log}}\left(\frac{{\text{{overweight\_obesity}}}}{{1 - \text{{overweight\_obesity}}}}\right). \]
+
+Values are then reverted back to their original scale before forecasting the prevalence.
+
+
+The intention is to use this for all 161 countries, but this is unfortunately not possible due to the nature of the data. While fitting the model was not a problem in most cases, there are 62 'outliers' like Australia or Papua New Guinea for which stationarity was not fulfilled. In these cases we applied a second order of differencing to ensure that the data met the criteria for stationarity. This adjustment not only facilitated successful model fitting and predictions but also mitigated errors like the one encountered, specifically \ *Error in* `stats::arima(x = x, order = order, seasonal = seasonal, xreg = xreg)`: *non-stationary AR part from CSS*.
+
+The figure below helps to demonstrate this issue by visualizing the time series data of the country Brunei Darussalam. We included multiple plots to show the additional impact of second-order differencing on the first order differenced data. This provides insights into the effectiveness and challenges of this approach in achieving stationarity by using the same autoregressive order for all countries.
+With the general plot of the time series, we can observe a definite trend - if the data is not differenced. As a comparison, we can see that this trend gets less obvious when differencing the data once or twice.
+
+Furthermore, the Auto Correlation Function Estimation (AF) plots show a significant improvement when applying second-order differencing rather than first-order differencing. However, we also observe that the first two lags remain significant, hinting towards non-stationarity even after second order differencing. Despite these limitations, we chose to include this example to illustrate the challenges of determining the appropriate order for an autoregressive model. Fitting one universal order for an autoregressive model complicates this issue as data can be very diverse. Additionally, the apparent lack of full stationarity in the plot could be attributed to the small sample size.
+
+Lastly, we analyzed the results of the Augmented Dickey-Fuller (ADF) test. The ADF test is a statistical hypothesis test used to assess the stationarity of a time series, providing a quantitative measure of stationarity.  
+In the case of Brunei, the p-value of the ADF test decreased from 0.25 to 0.01 when transitioning from the first order to the second order differenced time series. With a significance level of 5%, the ADF test provides robust and final statistical evidence supporting that the null hypothesis of non-stationarity can be rejected for the second-order differenced time series, suggesting that it is stationary.
+
+
+
+\
+```{r, eval = T, include = T, fig.cap = "Detemining the Order of the ARIMA Model"}
+library(forecast)
+library(tseries)
+
+forecast_df_men <- data.frame()
+m_2020_2050_men <- data.frame()
+country<-"Haiti"
+country<-"Azerbaijan"
+country<-"Indonesia"
+country<-"Brunei Darussalam"
+par(mfrow = c(2,3))
+  country_df <- data_oao_men[data_oao_men$Country.Region.World == country, ]
+  ag_popu_df <- ag_population_adult[ag_population_adult$Location == country, ]
+  ag_popu_df2<-ag_popu_df[ag_popu_df$Year>=2019, ]
+  ag_popu_df<-ag_popu_df[ag_popu_df$Year<=2016, ]
+  #print(country)
+  # Extract the time series and exogenous variables
+  country_df$oao_logit <- log(country_df$oao / (1-country_df$oao))
+  
+  ts_data <- ts(country_df$oao_logit, start = min(country_df$Year), frequency = 1)
+  xreg_data <-ag_popu_df$PopMale
+  xreg_data2<-ag_popu_df2$PopMale
+
+  plot(ts_data, main = "No differencing", ylab= "Time Series")
+  # Initialize arimax_model outside the tryCatch block
+  arimax_model <- NULL
+
+  tryCatch({
+    # Try fitting ARIMAX model
+    arimax_model <- Arima(ts_data, order = c(2, 1, 0), xreg = xreg_data)
+  }, error = function(e) {
+    # If an error occurs, print the error message
+    #print(adf.test(diff(ts_data)))
+    plot(diff(ts_data), main = "First Order differencing", ylab= "Time Series")
+    plot(diff(diff(ts_data)),main = "Second Order differencing", ylab= "Time Series")
+    acf((ts_data),main = "No differencing")
+    acf(diff(ts_data),main = "First Order differencing")
+    acf(diff(diff(ts_data)),main = "Second Order differencing")
+    #print(paste(country, "Error1:", e))
+  })
+
+  if (!is.null(arimax_model)) {
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060),
+                                      Forecast_men = as.numeric(forecasts_original_scale))
+    forecast_df_men <- rbind(forecast_df_men, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  
+    # Adjust to use values for the years 2020-2050
+    m_2020_2050_men <- rbind(m_2020_2050_men, data.frame(Country = country, 
+                                                         MeanProjection = country_mean))
+  }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    #print(adf.test(diff(diff(ts_data))))
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060),
+                                      Forecast_men = as.numeric(forecasts_original_scale))
+    forecast_df_men <- rbind(forecast_df_men, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  
+    # Adjust to use values for the years 2020-2050
+    m_2020_2050_men <- rbind(m_2020_2050_men, data.frame(Country = country, 
+                                                         MeanProjection = country_mean))
+  }, error = function(e) {
+    #Print an error message if the code block fails:
+    print(paste("Error2 in block:", e))
+  })
+  }
+```
+\
+
+In the end, the model parameters were set consistently with the specifications outlined in the reference paper except for the cases as described above. Interestingly, the reference paper did not explicitly mention encountering any errors during the modeling process.  
+Extending the modeling process to 161 countries as we did in this paper makes the process much more prone to failure due to the additional data. This would explain most of the stationary errors we received. However, we also had troubles when it comes to the 8 countries incorporated by the reference paper: The country Australia is one of the cases where we received an error message and differencing of the second order had to be applied [@Okunogbee006351].  
+For a more detailed description, of how the model was fitted exactly, including differencing and logit-transforming the data, we include an example code for the group 'Men' in the appendix.
+ 
+In the table below, we can see some overweight and obesity projections in the columns "Forecast *X*" with *X* being the corresponding group. These forecasts are expressed as relative values.
+
+\hspace{-2.5em}
+
+
+```{r, eval = T, include = T}
+colnames<-c("Country","Year", "Forecast Men", "Forecast Women", "Forecast Boys", "Forecast Girls")
+sampleprojection<-(predictions_oao_2060[c(1,6, 32, 42, 379, 384, 410, 420),c(1,2,8,9,15,16) ])
+knitr::kable(sampleprojection, col.names=colnames, "latex",row.names = F, caption = "Sample Projections") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+\hspace{-2.5em}
+
+
+Most values for future years are very close to the estimates from the reference paper as well as to other sources. A complete list of all future values can be seen in the appendix (Table \@ref(tab:Prevalence)). The prevalence of overweight and obesity can now be used for various calculations like computing the population with overweight or obesity in absolute numbers. However, before we move on to direct and indirect costs in which calculations like these are required, we use the overweight and obesity prevalence to estimate the overweight and obesity attributable fraction.
+
+
+### Overweight and obesity attributable fraction
+
+
+The overweight and obesity attributable fraction (OAF) is the proportion of total health expenditure that can be attributed to overweight and obesity. Following the approach of the reference paper, data on OAF for 52 countries is sourced from the *OECD Report* [@OECD2019], more specifically from the Global Burden of Disease study. This study analyzes mortality of numerous different diseases, including 28 diseases which are evidently linked to overweight and obesity. The OAF values are presented as an average between 2020-2050 but do unfortunately only represent 52 countries. It is therefore necessary to derive OAF values for countries not included in this study but very well included in this paper. We can see an overview of the 52 OAF values in Figure \@ref(fig:OAF).
+
+\hspace{-2.5em}
+
+
+```{r OAF, echo = F, eval = T, include = T, fig.cap = "OAF Values included in the OECD Report", out.width="97%"}
+knitr::include_graphics("C:\\Users\\Admin\\Desktop\\Thesis\\OAFs.png")
+
+```
+
+\hspace{-2.5em}
+
+
+Deriving OAF values for additional countries is done by regressing the available OAFs of the 52 nations from the OECD study on each country's average overweight and obesity prevalence between 2020 and 2050. Notably, it is not clear whether the reference paper uses the projected obesity prevalence between 2020 and 2050 or 2020 and 2060. The average overweight and obesity is being calculated when predicting future values for overweight and obesity as shown in the appendix. Thus, this is done group wise just as it is when fitting the autoregressive models to predict future prevalence values. The weighted mean of these average prevalences is then calculated. Weights are given by population percentages.  
+In the end, we obtain the average prevalence in 2020-2050 for each country. The weighted mean of the relevant country is ultimately used for the regression: The available OAFs of the 52 countries in the GBD Study are regressed on the average prevalences. We can see this in the plot below.
+
+By fitting a simple linear regression, we obtain a coefficient which can be used to estimate the OAF for countries not included in the report and also for predicting future OAF values.  
+Similar to the resulting model by *Okunogbe A. et al.*, there is a significant positive association between OAF and obesity prevalence at a significance level of 5%. (\( \beta =0.0889, p = 0.0351 \))(Figure \@ref(fig:Regression))
+
+
+```{r Regression, eval = T, include = TRUE,fig.width=6, fig.height=4, fig.cap="Plot of OAF and Obesity Prevalence"}
+plot(predictions_average_oaf_oao$oafs ~ predictions_average_oaf_oao$Forecast_weighted, 
+     xlab = "Obesity Prevalence", 
+     ylab = "OAF",
+     main = "Relationship between Forecasted Weighted Values and OAF",
+     col = "blue", 
+     pch = 16)
+abline(final$coefficients, col = "red")
+
+legend("topright", legend = c("Regression Line", "OAF"), col = c("red", "blue"), pch = c(NA), lty = 1)
+
+
+```
+
+
+
+To ensure consistency, the estimated OAFs from the regression output are always used instead of the raw values from the OECD report. For example, when calculating direct medical costs as we will see in the subsequent chapter, the OAF values which we predicted are used instead of the OAF values from the OECD report. With the completion of OAF value estimations, we can proceed to examine direct costs, which rely on these estimated OAF values. The most essential parts of the code utilized for generating the regression model, computing OAF values, and deriving direct costs can be found in the appendix.
+
+
+
+
+## Direct costs
+
+Direct costs are the total medical costs associated with treating illnesses linked to overweight and obesity. This covers medical resources and non-medical resources associated with treating these diseases. The diseases considered are the ones which are used in the *Global Burden of Disease Study* as we use the study's OAFs to calculate the costs as described below. 
+
+
+### Direct medical costs
+
+Direct medical costs are expenditures that are directly attributable to patient care and occur in the diagnosis and treatment of a specific illness or health condition. These costs cover various aspects of healthcare services such as hospital care, drugs, visits to clinics, and medical interventions. They are essential components of the overall economic impact of a health condition as they play a crucial role in healthcare planning, resource allocation, and economic evaluations.
+
+Direct medical costs are calculated by using the OAF and medical expenses of each country. More specifically, data on total health expenditure is available for most countries from the *WHO Global Health Expenditure Database.* However, we are not interested in past values but in future values to predict direct medical costs. These are sourced from the *Institute for Health Metrics and Evaluation* [@IHME]. They can then, country- and year-wise, be multiplied by the proportion of health expenditures that are attributable to the overweight and obesity related diseases (OAF). We can see how direct medical costs are relatively simple to calculate, especially if the OAF is already available.  
+This results in total direct medical costs (DMC), given by the following formula:
+
+
+\[ DMC = OAF \times Total Health Expenditure \]
+
+However, the dataset on total health expenditure unfortunately only includes data until the year 2050 which sets a limit when predicting future direct medical costs. The calculations for direct medical costs are therefore only made for the years 2019-2050. It is interesting to see that the reference paper includes results until 2060 but there is no description of how they deal with (missing) values from 2050-2060. Despite this, results of direct medical costs are very similar to the ones in the reference paper. An overview of all cost and predictions can be seen in the appendix. Direct medical costs range from 821 785 in Tuvalo to 132 billions in China. It can very well be seen how these expenditures play a big role in total expenditures related to overweight and obesity, especially when comparing them to other cost components.
+
+\hspace{-2.5em}
+
+```{r, eval = T, include = T}
+colnames<-c("Country","Year", "OAF", "Direct Costs in Billions")
+
+sampleprojection<-(predictions_oao[c(5,1,27, 296, 302,309),c(1,3,6, 18) ])
+knitr::kable(sampleprojection, col.names=colnames, "latex", caption = "Direct Costs", row.names = F) %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+
+```
+
+
+```{r}
+pie(c(sum(predictions_oao$direct_costs_1000, na.rm = T),sum(predictions_oao$travel_cost_1000, na.rm = T)))
+```
+
+### Direct non-medical costs
+
+Extra expenses which are not directly tied to patient care but still arise in the process of seeking medical attention are measured by direct non-medical expenditures. This might include the cost of transportation to medical facilities or doctor's visits, the costs paid to carers, the cost of housing and meals while receiving inpatient treatment, and the cost of making home adaptations. For direct non-medical costs, an estimate of the estimated travel and carer expenditures for individuals with obesity is included in this study.
+
+
+####  Travel costs
+\hspace{-2.5em}
+We start by calculating the travel costs. This is done for inpatient (hospitalization) and outpatient care separately. Inpatient care is the care of patients that involves admission to a hospital. Outpatient care on the other hand is anything that does not require hospitalization.
+
+
+Travel costs are computed by multiplying the average transport cost (ATC) per trip by the population's obesity rate and the number of additional inpatient or outpatient visits relative to the healthy population.
+
+\[ \text{Inpatient Travel Costs} = \text{ATC} \times \text{N}_{\text{in}} \times \text{Population with Obesity} \]
+
+
+\[ \text{Outpatient Travel Costs} = \text{ATC} \times \text{N}_{\text{out}} \times \text{Population with Obesity} \]
+
+where:
+
+- \(\text{ATC}\) represents the average travel cost to and from a health facility,
+
+
+- \(\text{N}_{\text{out}}\) is the number of additional outpatient visits to a health care facility when overweight or obese,
+
+
+- \(\text{N}_{\text{in}}\) is the number of additional inpatient visits to a health care facility when overweight or obese,
+
+
+- \(\text{Population with Obesity}\) is the overweight or obese population in absolute numbers.
+
+
+**ATC**
+
+
+The average transport cost is proxied by the daily average transport expenditure per capita for each nation. To estimate the average transport cost, the following parameters are being used:
+
+- \(\text{Gasoline price}\): The nation-wise price of gasoline per liter.
+
+- \(\text{Distance to health facility}\): A global estimate of 5 km as an average distance to a health facility is applied.
+
+- \(\text{Fuel efficiency}\): A global estimate of 0.07 l/km as average fuel efficiency is assumed [@IEA].
+
+The assumption of a 5 km average distance to a health facility is adopted following the approach of *Okunogbe et al.*. It is important to note that while this distance serves as a simplifying assumption for modeling purposes, its accuracy may vary across different regions.  
+With these parameters set, we compute the ATC by multiplying them according to the formula below. Data on gas prices is sourced from the World Bank - more specifically the World Development Indicators Databank [@Worldbank]. The parameters of the transport costs are assumed to stay constant for calculations of future costs.
+
+
+\[ \text{ATC} = \text{Price per Liter of Gasoline} \times \text{Distance to Health Facility} \times \text{Fuel Efficiency} \]
+
+**Inpatient/Outpatient visits**
+
+
+Following the approach in the reference paper, global estimates for inpatient and outpatient visits per country are used. These estimates are assumed to stay constant when incorporating them in the calculation for future costs.  
+However, as these proxies are sourced from peer reviewed studies and there is no detail on which peer reviewed studies exactly are being used, this thesis uses income-level estimates for inpatient and outpatient visits. We have to keep in mind that the reference paper only needs estimates for eight countries, while we need different values for 161 nations.  Countries are thus divided into the income groups "low-income countries" (LIC), "lower-middle-income countries"(LMIC), "upper/higher-middle- income countries"(HMIC) and "high-income countries"(HIC) using Worldbank's data on nations and income groups, telling us which countries belong to which income groups [@Worldbank].  
+The number of additional inpatient and outpatient visits taken as an estimation for various countries belonging to different income groups can be seen in Table \@ref(tab:Inpatient).
+
+
+The study *The Impact of Severe Obesity on Healthcare Resource Utilisation in Spain* analyses healthcare resource use, including inpatient and outpatient visits in Spain [@Espallardo2017]. We extract numbers for inpatient and outpatient visits from this paper as Spain is a high income country and we use these values as a proxy for the corresponding group. Inpatient visits are referred to as hospitalizations in this paper and outpatient visits as general practitioner, specialist and emergency room visits.
+
+For other income groups, the paper *The association between body mass index and health and economic outcomes in Brazil* is taken as a reference. This is based on Brazil, a LMIC Country. We shall take this as a proxy for the remaining income groups [@Kudel2018].  Inpatient visits are referred to as hospitalizations in the corresponding paper and outpatient visits as general practitioner and emergency room visits.
+
+\hspace{-2.5em}
+
+
+
+```{r Inpatient, eval = T, include = T}
+colnames<-c("Income Group","Additional inpatient visits", "Additional outpatient Visits", "Source")
+
+sampleprojection<-data.frame(Income_Group=c("LIC/LMIC/HMIC", "HIC"), Inpatient_visits=c(lmic_inpatient,hic_inpatient), Outpatient_visits=c(lmic_outpatient,hic_outpatient), Source =c("Kudel I. et al.", "Espallardo et al."))
+knitr::kable(sampleprojection, col.names=colnames, "latex", caption = "Additional inpatient/outpatient Visits") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+
+\hspace{-2.5em}
+
+**Overweight and obesity in absolute numbers**
+
+
+Having covered ATC and additional inpatient/outpatient visits, we can now move on to the last part of calculating the direct non-medical costs which is to get the absolute number of overweight and obese individuals to calculate the total travel costs.
+
+Data on population is sourced from United Nation's *World Population Divisions Database.* Following the predictions of direct medical costs, we combined the population dataset with our overweight and obesity predictions and calculated travel costs predictions until 2050 on a country-level basis.
+This is simply done by multiplying the overweight and obesity  prevalence by the corresponding population number, yielding the total number of overweight and obese people within each country.
+
+\hspace{-2.5em}
+
+
+```{r, eval = T, include = T}
+colnames<-c("Country","Year", "Overweight and Obesity Population in thousands")
+
+sampleprojection<-(predictions_oao[c(5,1,27, 296, 302,309),c(1,3,23) ])
+#sampleprojection <- subset(predictions_oao[c(9, 3, 26, 302, 319, 318), ], select = c(1, 3, 23))
+
+knitr::kable(sampleprojection, col.names=colnames, "latex", caption = "Overweight and Obese Population", row.names=F) %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+
+\hspace{-2.5em}
+
+
+It is now possible to ultimately arrive at the travel costs by adding up total inpatient and outpatient travel costs. 
+
+\[ \text{Travel Costs} = \text{Inpatient Travel Costs} + \text{Outpatient Travel Costs}\]
+
+
+Summing up the outpatient and inpatient travel costs to obtain total travel costs is done on a country level basis and for each year until 2050. 
+
+
+####  Informal caregiver (ICG) costs
+\hspace{-2.5em}
+The last part of direct non-medical costs are informal caregiver costs. This includes travel costs of informal caregivers while assuming one informal caregiver per patient. Time costs are assumed to be included within the indirect costs from absenteeism which will be calculated in the subsequent section. Furthermore, to ensure consistency with the reference paper, ICG costs are only taken into account for inpatient care. After considering these factors, ICG Costs are calculated by using \(\text{ATC} \times \text{N}_{\text{in}} \times \text{Population with Obesity} \) just as when calculating inpatient travel costs. With that being said, it is easy to see that ICG costs only depend on the inpatient travel costs which can be calculated as already described above. Following the reference paper, data on informal caregiver time cost have thus been excluded.
+
+An overview of direct non-medical costs, consisting of inpatient, outpatient and ICG travel costs can be seen in Table \@ref(tab:non-medical).
+
+\hspace{-2.5em}
+
+
+```{r non-medical, eval = T, include = T}
+colnames<-c("Country","Year", "Direct non-medical Costs in Billions")
+
+sampleprojection<-(predictions_oao[c(5,1,27, 296, 302,309),c(1,3,25) ])
+knitr::kable(sampleprojection, "latex", col.names=colnames, caption = "Direct non-medical Costs", row.names = F) %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+
+## Indirect costs
+
+
+We have now covered the most relevant aspects in terms of direct costs. We therefore move on to indirect costs, which refer to the  expenses due to premature mortality and productivity losses. Productivity losses can be furthermore divided into absenteeism and presenteeism costs.  
+Following the reference paper´s framework, other cost components, such as early retirement expenses and long-term disability costs, were left out as cross-national measurement of these was impractical. Additionally, there may be costs (such as worse academic success, less emotional support, and a decreased chance of promotion) and benefits (such as increased likelihood of promotion) connected with weight bias in various communities but research on the scope and direction of these effects has not been conducted internationally yet.  
+In regards to the subsequent sections, it is furthermore important to note that we assume the same employment rates by BMI status. Although it is conceivable that people who are obese may have lower employment rates than people in general, the available data is conflicting and equivocal [@Okunogbee006351].
+
+
+###  Economic costs of premature mortality
+\hspace{-2.5em}
+Economic costs of premature mortality is what we consider the economic costs of lives lost prematurely due to overweight and obesity attributable deaths. This computation consists of multiplying the total years of potential lives lost (YLLs) among individuals who died due to overweight or obesity-related causes, by the economic value assigned to a life year.  
+There are multiple possible proxies for economic value of a life year, for example annual wages. We ultimately decided to stick with GDP per capita as it recognizes all economic contributions regardless of job status. It adds an equitable perspective to the computation. The analysis furthermore extends this approach by incorporating a GDP multiplier to capture the effects associated with changes in national income, mortality or life expectancy. In alignment with the reference paper we apply a multiplier of 1.6 to each estimate as a global estimate.
+
+
+It is important to note that the approach of calculating premature mortality costs as described below might not fully align with the reference paper's approach. The reason for this is missing data, and that specific alternations as described below make calculations smoother and easier to follow.
+
+However, the main aspect of the paper´s approach of using data of overweight and obesity related diseases from the Global Burden of Disease Study 2019 is also applied in this thesis. As the GBD study includes total deaths and years of lives lost (YLLs) of various different diseases, we filter out the 28 relevant diseases to start calculations. These are the same as the ones used when calculating the OAF. Only the specific diseases "Low back pain", "Gout", "Cataract" and "Osteoarthritis" could not be included in the used dataset as they were not available in the *Global Health Data Exchange Database* [@GBDCN2020]. However, this should not pose a big problem as it is only a small part of the total overweight and obesity related diseases.  
+Following the approach of *Okunogbe et al*, the first step in determining premature mortality costs is getting the YLLs due to overweight and obesity related diseases. Just as in the reference paper, YLLs are at the core of calculating premature mortality costs. This aspect is therefore covered in detail below and the corresponding code can be seen in the appendix.
+
+\hspace{-2.5em}
+
+**Years of lives lost**
+
+To make calculations easier, we directly used the YLLs values of the *Global Burden of Disease Study 2019* [@GBDCN2020]. These are not being used by *Okunogbe et al.* In the reference paper, YLLs are calculated by using life expectancy sourced from the *World Population Prospect Database.* In short, the number of individuals who would have been alive in future years if they had not died from overweight and obesity in their death year, are estimated by calculating the product of the number of people in each age and sex cohort and the probability of surviving to the next year.
+
+
+However, directly using the already calculated and available YLLs of the GBD Study 2019 makes the process of determining premature mortality costs much smoother, more transparent and avoids unnecessary calculations. Nevertheless, it is important to mention that reconstructing premature mortality costs this way makes the results in the end different to the results we obtained when using the original approach. Despite this, it is worth noticing that the reference paper's approach of calculating YLLs has also been carried out. However, it appears that this attempt still deviated from the reference paper's approach as the results are quite different. (e.g premature mortality costs Australia year 2019: 7.7 billion USD  with reference paper's approach vs 12.8 billion USD in reference paper). 
+Furthermore, when using the simplified approach which we decided to stick with in the end, results can be up to about 100% higher. This is interesting to observe. We see how important YLLs are in the context of premature mortality costs and how different ways of calculating them can lead to discrepancies.
+
+\hspace{-2.5em}
+
+**Relative risk and population attributable fraction**
+
+
+After obtaining the YLLs of overweight and obesity related diseases, the goal is to calculate the YLLs which are solely attributable to overweight and obesity. This can be illustrated with an example: There are one million deaths of the overweight and obesity related disease diabetes. However many of theses deaths are attributable to different factors other than overweight and obesity. Consequently, we have to figure out how many of these deaths are directly related to being overweight or obese. 
+
+
+YLLs attributable to overweight and obesity are calculated by incorporating the relative risk and then deriving the population attributable fraction from this.  
+In this context, relative risk is a measure quantifying the likelihood of a particular disease occurring in a population without overweight or obesity compared to the overweight and obese population. A relative risk of 1 indicates no difference in risk between the two groups, while a relative risk greater than 1 suggests an increased risk in the exposed (overweight and obese) group compared to the unexposed (healthy weight) group. The relative risk values are obtained from the *Global Burden of Disease Study 2019* [@GBDCN2020]. Sadly, we were only able to get the relative risks for the base year 2019, which brings us to the second marking difference in the approach of calculating premature mortality costs.
+
+
+Apparently *Okunogbe A. et al.* use relative risks projections of 2019-2060 in the paper *Economic impacts of overweight and obesity: current and future estimates for 161 countries*, making it possible to calculate the resulting YLLs for future years. However, the process in the primary reference paper *Economic impacts of overweight and obesity: current and future estimates for eight countries* is more complex and involves deriving the relative risks from calculated PAF from *Global Burden of Disease Study 2019*. We found it more straightforward to utilize the provided relative risks (RR) directly, as detailed data sources for population attributable fractions (PAFs) were not readily accessible through extensive literature research.
+
+However, unfortunately  we could only access relative risks values from 2019 as already described. These are the reasons why this paper primarily calculates the YLLs and costs for the base year 2019. Predictions are then made by calculating the relative change of overweight and obesity prevalence for each country relative to the base year 2019.  This will be described subsequently. The difference between the approach described above and the reference paper's approach is why the results of premature mortality are quite different to the ones in the reference paper as it can be seen in Table \@ref(tab:Costs).
+
+
+As already mentioned, by incorporating relative risks, the population attributable fraction (PAF) can be calculated to measure the proportion of YLLs that are due to overweight and obesity.
+It is calculated as
+
+\[ PAF = \frac{{(p \times (RR - 1)) + 1}}{{p \times (RR - 1)}} \]
+
+where
+
+- \(p\) is the prevalence of overweight and obesity in the population,
+
+- \(RR\) is the relative risk.
+
+\hspace{-2.5em}
+
+**YLLs attributable and final costs (OAO YLLs)**
+
+
+By multiplying the PAFs with the number of years of lives lost of the relevant diseases, we get the years of lives lost which are evidently linked to overweight and obesity. We shall denote them overweight and obesity attributable years of lives lost (OAO YLLs). This number is ultimately multiplied by the value of a life year. Computations are conducted at the national level and disease/cause-wise. We do not differentiate by sex but rather utilize the average relative risk values for men and women, resulting in an average population attributable fraction (PAF) and subsequently years of lives lost (YLLs) for both genders combined. Calculations are specifically for the year 2019. The following formula describes the last step of arriving at OAO YLLs, representing the total years of lives lost (YLLs) attributable to overweight and obesity across all nations (\( n \)) and diseases/causes (\(c\)). It sums up the YLLs for each cause and country, accounting for all instances where premature mortality is linked to overweight and obesity.
+
+\[
+\sum_{n,c} {\text{YLLs due to Overweight and Obesity}} = \sum_{n,c} PAF \times \sum_{n,c} \text{Total YLLs}
+\]
+
+After obtaining the years of lives lost which are attributable to overweight and obesity, the mortality costs are obtained by multiplying the YLLs by the value of a life year (proxied by GDP/capita). This value, obtained from the *World Bank*, is projected to increase by 2.5% annually, as outlined in a report by *Capital Economists* [@Capital]. Following the approach of the reference paper, we also apply a GDP multiplier of 1.6.  
+We can see observe the following values: 
+
+\[
+\text{Premature mortality Costs} = \text{OAO YLLs} \times \text{Value of a Life year} \times \text{GDP Multiplier}
+\]
+
+
+For a better understanding an overview of the different parameters with their values can be seen in Table \@ref(tab:Premature).
+We can see observe the following values/columns: 
+
+- Country: The Location where the data is observed
+
+- Value of a life year: Proxied by GDP per capita
+
+- Year: Year of observation
+
+- YLLs: Total years of lives lost
+
+- OAO YLLs: Overweight and obesity related lives lost
+
+- Premature mortality Costs in billions
+
+\hspace{-2.5em}
+
+
+```{r Premature, eval = T, include = T}
+colnames<-c("Country", "Value of a life year", "Year", "YLLs", "OAO YLLs", "Premature mortality Cost in Billions")
+
+sampleprojection<-head(ylls_all_sum[,c(4,2,5,6,7,8) ])
+knitr::kable(sampleprojection, col.names=colnames, "latex", caption = "Premature mortality Cost in Billions") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+\hspace{-2.5em}
+
+
+It is important to note that these are only the costs for the year 2019. A complete list for all years and countries can be seen in the appendix (Table \@ref(tab:Costs)). We will now apply a simple method of projecting these costs into the future.
+
+
+As already mentioned, in terms of predicting future costs we lack data on the development of relative risks values. This thesis consequently assumes that they stay constant over time, enabling us to predict premature mortality costs in a simple but meaningful way by only using the overweight and obesity prevalence levels. For instance, we take the the costs of a country like Australia in the year 2019 as base costs and calculate the costs of each subsequent year until 2050 by multiplying the 2019 value with the relative change of the obesity prevalence. We decided to only do it until the year 2050 since it does not make sense to have some costs predicted until 2050 and some until 2060 as we wanted to opt for a complete picture in  the end. Although it's regrettable that our analysis doesn't extend to 2060 despite forecasting overweight and obesity prevalence until that year, we believe that focusing on a comprehensive view until 2050 provides valuable insights for decision-making and policy formulation.
+
+
+### Reduced productivity due to additional absenteeism
+
+The costs of missed work due to illnesses or other health problems are what is called additional or excess absenteeism. Excess absenteeism specifically indicates the average additional days of work missed as a result of obesity. The computation for the cost of lost productivity can be seen in the appendix and involves the following, sourced from *Okunogbe et al.*:
+
+
+\[
+\text{Absenteeism Cost} = \text{Employed Pop. with Obesity} \times \text{Additional Days Absent} \times \text{Average Daily Wages}
+\]
+
+
+where
+
+
+- Employed Population with Obesity = \( \text{Employment Rate} \times \text{Working Age Pop.} \times \text{Obesity Prevalence} \),
+
+- Excess Days Absent = Average number of additional days of absenteeism by working population with obesity compared to normal weight working population [@Okunogbee006351],
+
+
+- Average Daily Wages = \(\frac{\text{Average yearly Wage}}{\text{Average Number of Workdays a Year}}\).
+
+\hspace{-2.5em}
+
+**Average daily wages**
+
+\hspace{-2.5em}
+
+Following the approach of the reference paper, we used *ILO´s* global wage report for data on country-specific average wages [@ILO].
+
+However, this source only provides average yearly wages. Unfortunately there is no explanation of how many days are being used as a number for workdays per year to calculate the average daily wage.    
+A conservative global estimate of 248 for this parameter is adopted for the purpose of this analysis. It's important to note that this figure serves as a minimum baseline, accommodating diverse cultural practices and holidays across various regions. Actual workdays per year may vary, typically falling within the range of 248 to 260 days. Assumptions are based on global work culture and holiday patterns.
+
+
+Unfortunately there is also no description of how the authors deal with future wages in the reference paper other than that "projections for wages have been done"   [@Okunogbee006351]. In the absence of specific guidance, we made the pragmatic  assumption of a reasonable two percent inflation rate to project future wages. While this inflation-based approach offers a straightforward method for projecting future wages, it's important to acknowledge its limitations. Economic conditions and wage growth rates can vary over time and across different regions and projections should therefore be interpreted with caution.
+
+\hspace{-2.5em}
+
+**Employment rate**
+
+\hspace{-2.5em}
+
+Data on employment rates has been drawn from the *World Development Indicators Database* - contrary to *Okunogbe et al.* as the stated data resource was not discoverable for us. While the reference paper *Economic impacts of overweight and obesity: current and future estimates for eight countries* cited the OECD Economic Outlook study for employment projections, we encountered challenges in locating relevant data within that study. Additionally, *Economic impacts of overweight and obesity: current and future estimates for 161 countries* relied on internally generated projections for employment rates, lacking sufficient detail for replication.
+
+
+Consequently, we opted for a simplified approach of assuming a constant employment rate, given data constraints. Despite this, it is important to keep this in mind as employment dynamics over time are not captured by this mode. Data on employment rates for the year 2019 are used as a baseline [@Worldbank].    
+
+\hspace{-2.5em}
+
+**Excess days absent**
+
+\hspace{-2.5em}
+
+Similar to outpatient/inpatient visits, exact sources of the used excess days absent are not indicated in the reference paper. Data on excess days absent is referenced to as "sourced by literature review" which makes it challenging to find the exact values that they used. Additionally, it is hard to get a suitable global estimate for 161 countries. As described in the chapter "Inpatient/Outpatient visits" we thus decided to split the data into low-income and high-income groups, making it possible to have individual parameters tailored to the variations observed among different countries.
+
+
+To ensure consistency, we decided to use *Kudel's* research regarding body mass index and health outcomes in Brazil again for excess days absent in low-income countries. All values provided by the paper are for specific BMI categories. We thus have to calculate the weighted average of additional days absent for individuals in different obesity classes (overweight, obesity class I, obesity class II, obesity class III) using the provided prevalence rates and absenteeism rates. The classes with the corresponding absenteeism rates in percent according to *Kudel et al.* are:
+
+\hspace{-2.5em}
+
+```{r, eval = T, include = T}
+colnames <- c("Obesity Class", "Prevalence Rate (%)", "Absenteeism Rate (%) ")
+obesity_classes <- c("Normal", "Overweight", "Obesity Class I", "Obesity Class II", "Obesity Class III")
+prevalence_rates <- c(46.4,34.9, 12.9, 3.7, 2.1)
+absenteeism_rates <- c(6.21,6.46, 6.82, 8.28, 10.03)
+
+obesity_data <- data.frame(Obesity_Class = obesity_classes, Prevalence_Rate = prevalence_rates, Absenteeism_Rate = absenteeism_rates)
+knitr::kable(obesity_data, "latex", col.names=colnames, caption = "Absenteeism Parameters- LIC/LMIC/HMIC") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+
+\hspace{-2.5em}
+
+
+An absenteeism rate of 6.46% means that individuals missed approximately 6.46% of total working days due to a certain condition (overweight and obesity). We thus have to derive the number of additional days absent in absolute numbers as we see subsequently. The weighted average of additional days absent for individuals in different obesity classes can be calculated using the following formula:
+
+\[ \text{Weighted Average} = \frac{\sum_{i=1}^{n} \text{Absenteeism Rate}_i \times \text{Prevalence Rate}_i}{\sum_{i=1}^{n} \text{Prevalence Rate}_i} \]
+
+where
+
+
+- \( \text{Absenteeism Rate}_i \) represents the absenteeism rate for obesity class \( i \),
+- \( \text{Prevalence Rate}_i \) represents the prevalence rate for obesity class \( i \),
+- \( n \) is the total number of obesity classes.
+
+To then calculate the average additional days absent for individuals with overweight or obesity compared to normal weight individuals, the following formula can be used:
+
+\[ \text{Additional Days Absent} = \left( \text{Weighted Average} - \text{Normal Absenteeism Rate} \right) \times \frac{\text{Average Working Days Per Year}}{100} \]
+
+where
+
+- \( \text{Normal Absenteeism Rate} \) represents the average absenteeism rate for normal weight individuals. Following *Kudel et al.*, it is assumed to be \( 6.21 \),
+- \( \text{Average Working Days Per Year} \) represents the average number of working days in a year. 
+
+
+The corresponding code used for calculations can be seen in the appendix.  
+A similiar approach has been applied to the remaining countries but with data on absenteeism sourced from *Keramat et al* [@Keramat2020]. The table with the applied rates can be seen below.
+
+\hspace{-2.5em}
+
+```{r Absenteeism, eval = T, include = T}
+colnames <- c("Obesity Class", "Prevalence Rate (%)", "Absenteeism")
+obesity_classes <- c("Normal","Overweight", "Obesity Class I", "Obesity Class II", "Obesity Class III")
+prevalence_rates<-c(0.43292, 0.34532, 0.14749, 0.05052, 0.02334)
+absenteeism_rates<-c(0.5,0.71, 1.14, 1.23, 1.79)
+
+obesity_data <- data.frame(Obesity_Class = obesity_classes, Prevalence_Rate = prevalence_rates, Absenteeism_Rate = absenteeism_rates)
+knitr::kable(obesity_data, "latex", col.names=colnames, caption = "Absenteeism Parameters - HIC") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+
+\hspace{-2.5em}
+
+However, the study by *Keramat et al.* - *Gender differences in the longitudinal association between obesity, and disability with workplace absenteeism in the Australian working population* - does not provide absenteeism rate but absenteeism in absolute numbers. This means the values \( 0.71, 1.14, 1.23, 1.79 \) in Table \@ref(tab:Absenteeism) do not represent the percentage of days missed like in the previous table. They represent the average days missed due to overweight and obesity - corresponding to the overweight class. As a consequence, average working days per year do not have to be used anymore, resulting in a relatively accurate estimate since average working days per year can vary a lot between different countries. See Figure \@ref(fig:absenteeism) sourced from @Keramat2020 for the original values and the appendix for the corresponding code.
+
+```{r absenteeism, echo = F, eval = T, include = T, fig.cap = "Average missed Days of Work "}
+knitr::include_graphics("C:\\Users\\Admin\\Desktop\\Thesis\\absenteeism.png")
+
+```
+
+
+\hspace{-2.5em}
+
+In the end, we can see how the resulting values of costs due to absenteeism depend highly on these values. For a quick overview of 2019 values see Table \@ref(tab:AbsenteeismCost), also including direct costs, travel costs and premature mortality costs of four different nations as a comparison. A complete lists of all years with all countries  can be seen in the appendix. Values for absenteeism costs are not as high as the values in the reference paper which is very likely due to the low number of additional days absent we used by *Keramat et al.*. Additionally, Table \@ref(tab:AbsenteeismCost) and Table \@ref(tab:Costs) provided in the appendix reveal a notable absence of absenteeism and also presenteeism costs of the United Kingdom as we shall see later. This seems to be due to missing wage data. For countries without wage data of the year 2019 we opted to utilize values from the preceding years (2018, 2017, or 2016). However, wage data for the United Kingdom and Malta were unavailable across all considered years.
+
+
+\hspace{-2.5em}
+
+```{r AbsenteeismCost, eval = T, include = T}
+colnames <- c("Country", "Direct medical costs", "Direct non-medical", "Premature mortality Costs", "Absenteeism Costs")
+sample <- employment_income_predictions[c(296, 321, 5, 4997), c(1, 25, 32, 34, 37)]
+
+knitr::kable(sample, "latex", col.names=colnames, caption = "Costs including Absenteeism in Billions") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+
+
+### Reduced productivity due to additional presenteeism
+
+The last part of costs related to overweight and obesity is reduced productivity due to additional presenteeism. Presenteeism refers to decreased productivity of workers despite being at site and working "normally". Overweight and obesity may cause people to perform sub-optimally at work as it might lead to fatigue, pain and mental or other health issues. This is why overweight or obese individuals might only operate at reduced capacity, ultimately leading to lower productivity levels compared to the natural potential.
+
+Following the reference paper, it is defined as:
+
+\hspace{-2.5em}
+
+Presenteeism Cost = \( \text{Employed Pop. with Obesity} \times \text{Excess Presenteeism Rate} \times \text{Average Yearly Wages} \)
+
+\hspace{-2.5em}
+
+where
+
+
+- Employed Population with Obesity = \( \text{Employment rate} \times \text{Working Age Pop.} \times \text{Obesity Prevalence} \),
+
+- Excess Presenteeism Rate = Rate of Reduced Productivity among employees with obesity.
+
+Calculations are relatively simple since most of the parameters are already available because we needed them for absenteeism anyways. Data on employment and wages has already been sourced so the only thing additionally required is the presenteeism rate. According to *Okunugbe et al.*, this is again "sourced from peer-reviewed studies", unfortunately lacking specific information on which exact studies.  
+We decided to use the same resources that we used in calculating absenteeism again, but unfortunately the study by *Espallardo et al.* does not include values for presenteeism. We used the paper *Obesity in Germany and Italy: prevalence, comorbidities, and associations with patient outcomes* by *DiBonaventura et al.* instead [@DiBonaventura2018]. With it, it is possible to use presenteeism rates of Germany for high-income countries. For the other countries, data from *Kudel et al.* is used.
+
+
+As in the chapter before, the weighted mean has to be calculated. Presenteeism rates and weights for computing the mean can be seen in the tables below.
+
+\hspace{-2.5em}
+
+```{r PresenteeismLIC, eval = T, include = T}
+colnames <- c("Obesity Class", "Prevalence Rate (%)", "Presenteeism Rate (%)")
+obesity_classes <- c("Normal", "Overweight", "Obesity Class I", "Obesity Class II", "Obesity Class III")
+prevalence_rates<-c(46.4, 34.9, 12.9, 3.7, 2.1)
+presenteeism_rates<-c(17.69, 17.38, 19.28, 20.98, 26.47)
+
+obesity_data <- data.frame(Obesity_Class = obesity_classes, Prevalence_Rate = prevalence_rates, Presenteeism_Rates = presenteeism_rates)
+knitr::kable(obesity_data, col.names = colnames, format = "latex", caption = "Presenteeism Parameters - LIC/LMIC/HMIC")%>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+
+\hspace{-2.5em}
+
+All presenteeism rates sourced are significant except for the value of the overweight group in Table \@ref(tab:PresenteeismLIC). The values in Table \@ref(tab:PresenteeismLIC) are used as a proxy for LIC, LMIC and HMIC countries. Table \@ref(tab:PresenteeismHIC) indicates the values sourced from *DiBonaventura et al.* and is applied to HIC countries.
+
+\hspace{-2.5em}
+
+
+```{r PresenteeismHIC, eval = T, include = T}
+colnames <- c("Obesity Class", "Prevalence Rate (%)", "Presenteeism Rate (%)")
+obesity_classes <- c("Normal", "Overweight", "Obesity Class I", "Obesity Class II", "Obesity Class III")
+prevalence_rates <- c(43.46, 35.24, 13.89, 4.79, 2.60)
+presenteeism_rates <- c(15.55, 15.51, 16.97, 17.72, 24.97)
+
+obesity_data <- data.frame(Obesity_Class = obesity_classes, Prevalence_Rate = prevalence_rates, Presenteeism_Rates = presenteeism_rates)
+knitr::kable(obesity_data, col.names = colnames, format = "latex", caption = "Presenteeism Parameters - HIC")%>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+
+\hspace{-2.5em}
+
+Similar to before, a table including estimates for presenteeism costs can be seen below. Estimates are roughly within the same range to the ones of reference paper but there can still be high variations depending on the country. Interestingly, it seems that the countries Germany and Brazil are very close to the reference paper's values, indicating that the reference paper used similar presenteeism rates for these countries and probably applied other rates to other countries.
+
+\hspace{-2.5em}
+
+```{r, eval = T, include = T}
+colnames <- c("Country", "Direct medical Costs", "Direct non-medical Costs", "Premature mortality Costs", "Absenteeism Costs", "Presenteeism Costs")
+sample <- employment_income_predictions[c(296, 321, 5, 4997), c(1, 25, 32, 34, 37,40)]
+knitr::kable(sample, col.names = colnames, format = "latex", caption = "Presenteeism Costs")%>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+\hspace{-2.5em}
+
+## Total costs
+
+Adding all the different described cost parameters together results into  our final projections up to the year 2050. Despite the limitation of predictions extending only to 2050 rather than 2060, these projections provide valuable insights into future costs.  
+It is especially interesting to see the different cost components in comparison to each other. Figure \@ref(fig:Breakdown2019) can be used to visualize the projections of Germany, Australia, United Arab Emirates and Austria. Premature mortality emerges as the most significant component among all cost factors. This consistent pattern is evident across all countries and aligns with the projections of the reference paper. The prominence of premature mortality can be attributed to its directly related to GDP growth, which amplifies the associated costs. All values below are costs from 2019. Figure \@ref(fig:Breakdown2050) visualizes the projected data of the year 2050.
+
+\hspace{-2.5em}
+
+```{r Breakdown2019, eval = T, include = T, fig.cap="Cost Comparisons 2019"}
+library(ggplot2)
+
+# Define the data
+colnames <- c("Country", "Direct medical Costs", "Direct non-medical Costs", "Premature mortality Costs", "Absenteeism Costs", "Presenteeism Costs")
+interest<-c("Australia", "Germany", "United Arab Emirates", "Austria")
+sample<-employment_income_predictions[employment_income_predictions$Country.Name %in% interest & employment_income_predictions$year==2019, c(1, 25, 32, 35, 37,40)]
+#sample <- employment_income_predictions[c(1793,289, 4961), c(1, 25, 32, 35, 37,40)]
+# Convert 'sample' to a data frame
+sample_df <- as.data.frame(sample)
+colnames(sample_df) <- colnames
+
+# Reshape data for plotting
+library(tidyr)
+sample_df_long <- gather(sample_df, key = "Cost_Type", value = "Cost", -Country)
+
+# Create bar plot
+Plot1<-ggplot(sample_df_long, aes(x = Country, y = Cost, fill = Cost_Type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Country", y = "Cost in Billions", fill = "Cost Type") +
+  ggtitle("Cost Breakdown by Country") +
+  theme_minimal()
+print(Plot1)
+```
+
+```{r Breakdown2050, eval = T, include = T, fig.cap="Cost Comparison 2050"}
+library(ggplot2)
+
+# Define the data
+colnames <- c("Country", "Direct medical Costs", "Direct non-medical Costs", "Premature mortality Costs", "Absenteeism Costs", "Presenteeism Costs")
+#sample2 <- employment_income_predictions[c(1793,289, 4961)+31, c(1, 25, 32, 34, 37,40)]
+sample<-employment_income_predictions[employment_income_predictions$Country.Name %in% interest & employment_income_predictions$year==2050, c(1, 25, 32, 35, 37,40)]
+
+# Convert 'sample' to a data frame
+sample_df <- as.data.frame(sample)
+colnames(sample_df) <- colnames
+
+# Reshape data for plotting
+library(tidyr)
+sample_df_long <- gather(sample_df, key = "Cost_Type", value = "Cost", -Country)
+
+# Create bar plot
+Plot2<-ggplot(sample_df_long, aes(x = Country, y = Cost, fill = Cost_Type)) +
+  geom_bar(stat = "identity", position = "dodge", show.legend = T) +
+  labs(x = "Country", y = "Cost in Billions", fill = "Cost Type") +
+  ggtitle("Cost Breakdown by Country") +
+  theme_minimal()
+print(Plot2)
+```
+
+\newpage
+
+Additionally, we can take a closer look at how various cost components develop on average over time. The Figure below illustrates this, with costs spanning from 2019 to 2050. Each line represents the average of each cost category across all nations. It includes direct costs, travel costs, premature mortality costs, presenteeism costs, and absenteeism costs. The total cost line provides a comprehensive overview of the cumulative financial burden associated with these factors, aiding in the assessment of long-term economic impacts and decision-making processes. We see how total costs related to overweight and obesity are on average at about 10 billions in the year 2019 and will increase to almost 17 billions in the year 2050 if current trends continue. It is important to note that all costs are in 2019 constant USD, following the approach of *Okunogbe et al.*. Values can also be seen in Table \@ref(tab:AverageCosts) in the appendix. 
+
+
+```{r Development, eval = T, include = T, fig.cap="Cost Development"}
+
+average_df <- aggregate(cbind(direct_costs_1000, travel_cost_1000, premature_mort_costs, presenteeism_cost, absenteeism_cost)  ~ year, data = employment_income_predictions, FUN = mean, na.rm = TRUE)
+average_df$sum<-average_df$direct_costs_1000+average_df$travel_cost_1000+average_df$premature_mort_costs+average_df$presenteeism_cost+average_df$absenteeism_cost
+library(ggplot2)
+colnames <- c("Year","Direct medical Costs", "Direct non-medical Costs", "Premature mortality Costs", "Presenteeism Costs", "Absenteeism Costs", "Total Costs")
+
+# Assuming your dataframe is named 'df'
+# Convert 'Year' column to factor for better plotting
+colnames(average_df)<-colnames
+
+average_df$Year <- factor(average_df$Year)
+
+
+
+# Melt the dataframe into long format for easier plotting
+melted_df <- reshape2::melt(average_df, id.vars = "Year")
+custom_years <- c(2019, 2024, 2028, 2032, 2036, 2040, 2044, 2048, 2050)
+
+# Plot using ggplot
+Plot3<-ggplot(melted_df, aes(x = Year, y = value, color = variable, group = variable)) +
+  geom_line() +
+  labs(x = "Year", y = "Value in Billions", color = "Variable") +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  scale_color_manual(values = c("Direct medical Costs" = "blue",
+                                 "Direct non-medical Costs" = "green",
+                                 "Premature mortality Costs" = "red",
+                                 "Presenteeism Costs" = "orange",
+                                 "Absenteeism Costs" = "purple",
+                                "Total Costs" = "black")) +
+  ggtitle("Development of Costs over Time") +
+  ylim(0, 30)+
+  scale_x_discrete(breaks = custom_years)
+
+
+print(Plot3)
+```
+
+
+
+# Conclusion
+
+Results reveal a substantial economic burden attributable to overweight and obesity. Interestingly, premature mortality costs are a bigger part than direct medical costs in most countries and direct non-medical costs are by far the smallest. 
+In perspective, China's GDP is projected to be around 58 000 Billion USD according to Statista [@Statista], implying that overweight and obesity would constitute approximately 1% of China's GDP.
+
+However, when considering China's big population and economic scale, this proportion appears relatively modest: The Russian Federation for instance, has total costs of 54 Billion which is alarming when considering that its gross domestic product is forecasted to be 1471 Billion USD [@Statista], resulting into overweight and obesity related costs to be about 3.7% of Russia's GDP.
+
+```{r}
+gdp<-read.csv("API_NY.GDP.MKTP.KD_DS2_en_csv_v2_127.csv")
+gdp<-gdp[,c(2,64)]
+employment_income_predictions<-merge(gdp, employment_income_predictions, by.x="Country.Code", by.y="Country.Code.x")
+employment_income_predictions <- employment_income_predictions %>%
+  group_by(Country.Name) %>%
+  mutate(X2019 = X2019 * (1 + 0.025)^(year - min(year))) %>%
+  ungroup()
+employment_income_predictions$X2019<-employment_income_predictions$X2019/10^9
+#employment_income_predictions$X2019<-employment_income_predictions$X2019*10^3
+
+```
+
+
+```{r GDP Development, eval = T, include = T, fig.cap="Cost Development"}
+
+average_df2 <- aggregate(cbind(direct_costs_1000, travel_cost_1000, premature_mort_costs, presenteeism_cost, absenteeism_cost, X2019)  ~ year, data = employment_income_predictions, FUN = mean, na.rm = TRUE)
+average_df2$sum<-average_df2$direct_costs_1000+average_df2$travel_cost_1000+average_df2$premature_mort_costs+average_df2$presenteeism_cost+average_df2$absenteeism_cost
+average_df2$relative<-average_df2$sum/average_df2$X2019*100
+average_df3<-average_df2[, c(1,9)]
+
+Plot3<-ggplot(average_df3, aes(x = year, y = relative)) +
+  geom_line() +
+  labs(x = "Year", y = "Costs in % of GDP") +
+  ggtitle("Development of total Costs in % of GDP") +
+  theme_minimal()+
+  ylim(0, 10)
+
+
+print(Plot3)
+```
+
+
+Despite challenges such as data limitations and modeling complexities, this study provides valuable insights into the economic consequences of overweight and obesity on a global scale. By explaining the economic dimensions of this public health challenge, the findings underscore the urgency of implementing effective interventions and policies to address overweight and obesity and mitigate its economic burden.
+
+As highlited by *Okunogbe et al.* even a modest reduction of overweight and obesity would save massive amounts of money - if current trends of increases in overweight and obesity continue. By reducing overweight and obesity prevalence by 5% each year, all cost parameters will be effected and total costs will be considerably lower in the end. A reduction of 5% of the projected overweight and obesity would result into cost reductions of 21391.72 Billion USD within the years 2019-2050.
+
+
+
+
+
+# Appendix
+
+In this appendix, we present the essential R code used for the calculations, accompanied by short explanations and comprehensive results.
+
+
+## Forecasting prevalence of men
+
+- To forecast prevalence of men, a dataframe `ag_popu_df` and `ag_popu_df2` is used for the exogenous factor `population`. `ag_popu_df` is used for fitting the model and `ag_popu_df2` for creating predictions.
+
+- For each country, we apply a logit-transformation and create a time series.  
+- Together with the exogenous variable `population` we fit an ARIMA model of the order (2,1,0). If model fitting is not successful, we fit it using the order (2,2,0).  
+- We create a dataframe `m_2020_2050_men` in which mean projections of 2020-2050 from all countries are saved.
+
+```{r, echo = T, eval = F, include = T}
+library(forecast)
+forecast_df_men <- data.frame()
+m_2020_2050_men <- data.frame()
+for (country in unique(urban_per$Location)) {
+  country_df <- data_oao_men[data_oao_men$Country.Region.World == country, ]
+  ag_popu_df <- ag_population_adult[ag_population_adult$Location == country, ]
+  ag_popu_df2<-ag_popu_df[ag_popu_df$Year>=2019, ]
+  ag_popu_df<-ag_popu_df[ag_popu_df$Year<=2016, ]
+  print(country)
+
+  # Extract the time series and exogenous variables
+  country_df$oao_logit <- log(country_df$oao / (1-country_df$oao))
+  
+  ts_data <- ts(country_df$oao_logit, start = min(country_df$Year), frequency = 1)
+  xreg_data <-ag_popu_df$PopMale
+  xreg_data2<-ag_popu_df2$PopMale
+
+
+  # Initialize arimax_model outside the tryCatch block
+  arimax_model <- NULL
+
+  tryCatch({
+    # Try fitting ARIMAX model
+    arimax_model <- Arima(ts_data, order = c(2, 1, 0), xreg = xreg_data)
+  }, error = function(e) {
+    # If an error occurs, print the error message
+    print(paste(country, "Error1:", e))
+  })
+
+  if (!is.null(arimax_model)) {
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060),
+                                      Forecast_men = as.numeric(forecasts_original_scale))
+    forecast_df_men <- rbind(forecast_df_men, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2050
+    country_mean <- mean(forecasts_original_scale[1:32])  
+    # Adjust to use values for the years 2020-2050
+    m_2020_2050_men <- rbind(m_2020_2050_men, data.frame(Country = country, 
+                                                         MeanProjection = country_mean))
+
+  }
+ if (is.null(arimax_model)) {
+  tryCatch({
+    arimax_model <- Arima(ts_data, order = c(2, 2, 0), xreg = xreg_data)
+    # Generate forecasts using the fitted model
+    forecasts <- forecast(arimax_model, xreg = xreg_data2, h = 42)
+    forecasts_original_scale <- exp(forecasts$mean) / (1 + exp(forecasts$mean))
+
+
+    # Create a data frame for forecasted values
+    forecast_df_country <- data.frame(Country = rep(country, 42), Year = seq(2019, 2060),
+                                      Forecast_men = as.numeric(forecasts_original_scale))
+    forecast_df_men <- rbind(forecast_df_men, forecast_df_country)
+
+    # Calculate the mean projection for 2020-2060
+    country_mean <- mean(forecasts_original_scale[1:32])  
+    # Adjust to use values for the years 2020-2050
+    m_2020_2050_men <- rbind(m_2020_2050_men, data.frame(Country = country, 
+                                                         MeanProjection = country_mean))
+  }, error = function(e) {
+    #Print an error message if the code block fails:
+    print(paste("Error2 in block:", e))
+  })
+  }
+}
+
+
+# Print the results
+head(forecast_df_men)
+print(m_2020_2050_men)
+```
+
+
+##  Adult, childhood/adolescent, and overall overweight and obesity prevalence, by sex, 2019 and 2060
+```{r Prevalence, eval = T, include = T}
+colnames<-c("Country","Year", "Forecast Men", "Forecast Women", "Forecast Boys", "Forecast Girls")
+years_of_interest <- c(2019, 2024, 2060)
+sampleprojection <- predictions_oao_2060[predictions_oao_2060$Year %in% years_of_interest & predictions_oao_2060$Location %in% Country, c(1,2,8,9,15,16)]
+
+#knitr::kable(sampleprojection, col.names = colnames, "simple", caption = "Overweight and Obesity Prevalence by Sex")
+kable(sampleprojection, 
+      col.names = colnames, 
+      format = "latex", 
+      longtable = TRUE, 
+      caption = "Overweight and Obesity Prevalence by Sex",
+      row.names = F) %>%
+  kable_styling(latex_options = c("HOLD_position"))
+
+```
+
+## Regression to estimate OAF and direct medical costs
+
+- To arrive at the model in Figure \@ref(fig:Regression), we fitted a linear regression of the OAF values on the weighted oao forecasts of each country. 
+
+```{r, echo= T, eval = F, include = T}
+final<-lm(predictions_average_oaf_oao$oafs~predictions_average_oaf_oao$Forecast_weighted)
+summary(final)
+
+```
+
+- We then used this model to make OAO predictions which are later used for direct costs.
+
+```{r, echo= T, eval = F, include = T}
+matrix<-cbind(1,predictions_oao$Forecast_weighted) #create matrix to predict oao
+predictions_matrix_allyears_oaf<-matrix%*%final$coefficients #create predictions by using
+#the model's coefficients and a matrix
+predictions_oao<-cbind(predictions_matrix_allyears_oaf, predictions_oao)
+#the predictions seem to make sense: compare them to oaf_df_2060
+```
+
+- Direct costs for all years are computed by multiplying the predicted OAF value (`predictions_matrix_allyears_oaf`) by the sourced health expenditures (`the_total_mean`) of every country
+
+```{r, echo= T, eval = F, include = T}
+predictions_oao$direct_costs_1000<-predictions_oao$predictions_matrix_allyears_oaf
+*predictions_oao$the_total_mean
+```
+
+
+## Premature mortality costs
+
+
+`ylls_all`: A dataset containing the total YLLs from all overweight and obesity related diseases. Relative risks have already been added into this dataframe, making the calculations of PAF and OAO YLLs possible. 
+```{r, echo= T, eval = F, include = T}
+#calculating PAF
+ylls_all$af<-(ylls_all$Forecast_weighted*(ylls_all$rr_values-1))/(
+  ylls_all$Forecast_weighted*(ylls_all$rr_values-1)+1)
+#calculating OAO YLLs
+ylls_all$oao_yll <- ylls_all$val*ylls_all$af
+```
+
+- We now aggregate our dataset as we do not need the YLLs of all individual diseases for each countries but the total YLLs for each country. 
+- We add the value of a life year to the dataframe.
+- We compute premature mortality costs.
+```{r, echo= T, eval = F, include = T}
+#aggregate
+ylls_all_sum <- aggregate(cbind(val, oao_yll) ~ age_name + location_name + year
+                          + ISO3_code, data = ylls_all, FUN = sum)
+#Add GDP/Capita:
+ylls_all_sum<-merge(gdp[, c(2, 48)], ylls_all_sum, by.x=c("Country.Code"), 
+                    by.y=c("ISO3_code"))
+#compute premature mortality costs
+ylls_all_sum$premature_mortality_costs<-ylls_all_sum$oao_yll*as.numeric(
+  ylls_all_sum$X2016..YR2016.)*1.6
+
+```
+
+- We now compute the relative change of overweight and obesity prevalence for each country relative to the base year 2019.
+```{r, echo= T, eval = F, include = T}
+#create relative change
+predictions_oao <- predictions_oao %>%
+  group_by(Country.Name) %>%
+  mutate(Relative_Change = (Forecast_weighted - Forecast_weighted[year == min(year)]) /
+           Forecast_weighted[year == min(year)]) %>%
+  ungroup()
+```
+- We add the previously calculated parameters to the dataframe
+- We calculate the projections of premature mortality costs based on the relative change.
+```{r, echo= T, eval = F, include = T}
+#add YLLs of 2019 to the dataframe including all the subsequent years
+predictions_oao <- merge(predictions_oao, ylls_all_sum[, c(4,8)], by.x = "Country.Name",
+                         by.y="location_name")
+
+#calculate the resulting premature mortality costs for all years based on the relative 
+#change
+predictions_oao$costs <- (predictions_oao$Relative_Change+1)
+*predictions_oao$premature_mortality_costs
+
+```
+
+## Absenteeism
+
+
+After data handling, we end up with the dataframe `employment_income_predictions` which consists of average wages, the employment rate and the overweight/obese population. We can later calculate and add absenteeism to this dataframe to derive absenteeism costs in the end.
+
+- Before we calculate any costs, we increase wages by two percentage each year
+```{r, echo= T, eval = F, include = T}
+#increase wages by 2 percentage each year
+employment_income_predictions <- employment_income_predictions %>%
+  group_by(Country.Name) %>%
+  mutate(daily_2019 = daily_2019 * (1 + 0.02)^(year - min(year))) %>%
+  ungroup()
+```
+
+- Calculations of additional days absent for low-income countries:
+
+```{r, echo= T, eval = F, include = T}
+prevalence_rates <- c(34.9, 12.9, 3.7, 2.1)
+absenteeism_rates <- c(6.46, 6.82, 8.28, 10.03)
+
+
+# Calculate the weighted average
+weighted_average <- sum(absenteeism_rates * prevalence_rates) / sum(prevalence_rates)
+
+lic_additional_days_absent<-((weighted_average-6.21)*248)/100 #substract average 
+#absenteiism and multiple with average working days to get additional days absent
+lic_additional_days_absent
+```
+
+- Calculations of additional days absent for other countries:
+
+```{r, echo= T, eval = F, include = T}
+#calculate relative values of all classes for weighted average
+
+prevalence_rates<-c(0.34532, 0.14749, 0.05052, 0.02334)
+absenteeism_rates<-c(0.71, 1.14, 1.23, 1.79)
+
+weighted_average<-sum(absenteeism_rates*prevalence_rates)/sum(prevalence_rates)
+hic_additional_days_absent<-weighted_average-0.5
+
+```
+
+- Depending on the income group, absenteeism is added to calculate total absenteeism costs.
+- Absenteeism costs are calculated.
+```{r, echo= T, eval = F, include = T}
+
+#add it based on income level
+employment_income_predictions$absenteeism<-ifelse(
+  employment_income_predictions$Income.group == "High income", 
+  hic_additional_days_absent, lic_additional_days_absent)
+#absenteeism costs:
+employment_income_predictions$absenteeism_cost<-
+  employment_income_predictions$oaoPopulation_1000*1000*
+  employment_income_predictions$employment_rate*
+  employment_income_predictions$absenteeism*employment_income_predictions$daily_2019
+
+```
+
+## Presenteeism
+
+- Calculations of additional days absent for low-income countries:
+
+```{r, echo= T, eval = F, include = T}
+prevalence_rates <- c(34.9, 12.9, 3.7, 2.1)
+presenteeism_rates <- c(17.69, 19.28, 20.98, 26.47)
+#prevalence_rates <- c(12.9, 3.7, 2.1)
+#presenteeism_rates <- c(19.28, 20.98, 26.47)
+
+# Calculate the weighted average
+weighted_average <- sum(presenteeism_rates * prevalence_rates) / sum(prevalence_rates)
+
+lic_presenteeism<-(weighted_average-17.69)/100
+
+```
+
+- calculations of additional days absent for other countries:
+
+```{r, echo= T, eval = F, include = T}
+prevalence_rates <- c(35.24, 13.89, 4.79, 2.60)
+absenteeism_rates <- c(15.51, 16.97, 17.72, 24.97)
+
+
+# Calculate the weighted average
+weighted_average <- sum(absenteeism_rates * prevalence_rates) / sum(prevalence_rates)
+
+hic_presenteeism<-(weighted_average-15.55)/100
+
+```
+
+- Wage (yearly wage!) is increased by 2% each year.
+
+- We can ultimately add presenteeism for the income groups and calculate total presenteeism costs.
+
+```{r, echo= T, eval = F, include = T}
+#increase yearly wages by 2 percentage each year
+
+employment_income_predictions <- employment_income_predictions %>%
+  group_by(Country.Name) %>%
+  mutate(yearly_wage = yearly_wage * (1 + 0.02)^(year - min(year))) %>%
+
+  #mutate(yearly_wage= yearly_wage + yearly_wage * 0.02 * (year - min(year)))%>%
+  ungroup()
+
+#add it based on income group
+employment_income_predictions$presenteeism<-ifelse(
+  employment_income_predictions$Income.group == "High income", hic_presenteeism,
+  lic_presenteeism)
+
+
+#calculate presenteeism costs
+employment_income_predictions$presenteeism_cost<-
+  employment_income_predictions$oaoPopulation_1000*1000*
+  employment_income_predictions$employment_rate*
+  employment_income_predictions$presenteeism*
+  employment_income_predictions$yearly_wage
+
+```
+
+
+## Costs by country and type, 2019-2050
+
+```{r Costs, eval = T, include = T}
+library(kableExtra)
+colnames<-c("Country","Year", "Direct medical Costs", "Direct non-medical Costs", "Premature mortality Costs", "Absenteeism Costs", "Presenteeism Costs", "Total Costs")
+years_of_interest <- c(2019, 2024, 2050)
+sampleprojection <- employment_income_predictions[employment_income_predictions$year %in% years_of_interest & employment_income_predictions$Country.Name %in% Country, c(1,10,25,32,35,37,40, 41)]
+
+# Determine the number of rows in the dataframe
+num_rows <- nrow(sampleprojection)
+
+# Calculate the number of rows for each chunk (approximately)
+chunk_size <- ceiling(num_rows / 4)
+
+# Split the dataframe into 4 chunks
+chunk1 <- sampleprojection[1:chunk_size, ]
+knitr::kable(chunk1, col.names = colnames, "latex", caption = "Costs by Country, Year and Type") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+
+chunk2 <- sampleprojection[(chunk_size + 1):(2 * chunk_size), ]
+
+knitr::kable(chunk2, col.names = colnames, "latex") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+
+chunk3 <- sampleprojection[(2 * chunk_size + 1):(3 * chunk_size), ]
+
+knitr::kable(chunk3, col.names = colnames, "latex") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+
+chunk4 <- sampleprojection[(3 * chunk_size + 1):num_rows, ]
+knitr::kable(chunk4, col.names = colnames, "latex") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+
+```
+
+## Average costs by year and type, 2019-2050
+
+```{r AverageCosts, echo = F, eval = T, include = T}
+
+colnames <- c("Year","Direct medical Costs", "Direct non-medical Costs", "Premature mortality Costs", "Presenteeism Costs", "Absenteeism Costs", "Total Costs", "% of GDP")
+
+average_df2<-average_df2[, -7]
+knitr::kable(average_df2, "latex", col.names = colnames, caption = "Average Costs by Year and Type") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+
+```
+
+
+## Table of abbreviations 
+```{r Abbreviations, echo = F, eval = T, include = T}
+projection_data <- data.frame(
+  Abbreveation = c("OAO", "OAF","DMC","ATC","ICG", "YLLs","OAO YLLs", "HIC", "LIC", "LMIC", "HMIC", "RR", "PAF"),
+  Definition = c("Overweight and obesity", "Obesity attributable fraction of health expenditures", "Direct medical costs", "Average transport costs","Informal caregiver costs","Years of lives lost","Overweight and obesity related lives lost", "High-income countries", "Low-income countries", "Lower-middle-income countries", "Upper/higher-middle-income countries", "Relative Risk", "Population attributable fraction"),
+  stringsAsFactors = FALSE
+)
+#knitr::kable(projection_data,caption = "Parameters and Sources", "latex")
+knitr::kable(projection_data, "latex", caption = "Abbreviations") %>%
+  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+```
+
+
+
+# References
+
+
+
+
+
