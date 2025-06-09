@@ -5,7 +5,7 @@ This repository contains the final thesis and code behind my Bachelor's thesis a
 ## **Estimating the Cost of Overweight and Obesity: A Data-Driven Time Series and Causal Analysis**
 
 ## Description
-The project applies R-based time series and causal analysis techniques to estimate the economic burden of obesity in Austria. Methods include structural time series modeling, Granger causality testing, and counterfactual simulations.
+The project applies R-based time series and causal analysis techniques to estimate the economic burden of obesity in until 2060 worldwide.
 
 ## Files
 - `/Data/*`: Data used for the thesis.
